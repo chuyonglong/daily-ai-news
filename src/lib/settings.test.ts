@@ -80,3 +80,28 @@ describe("ensureDefaults", () => {
     expect(mocks.prisma.appSetting.upsert).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("getAppConfig brief fill mode", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSuccessfulDefaults();
+  });
+
+  it("backfills instant mode for old app config rows", async () => {
+    const { getAppConfig } = await importSettings();
+    mocks.prisma.appSetting.findUnique.mockResolvedValue({ value: { briefLanguage: "zh" } });
+
+    const config = await getAppConfig();
+
+    expect((config as { briefFillMode?: string }).briefFillMode).toBe("instant");
+  });
+
+  it("coerces unsupported brief fill modes to instant", async () => {
+    const { getAppConfig } = await importSettings();
+    mocks.prisma.appSetting.findUnique.mockResolvedValue({ value: { briefFillMode: "scroll" } });
+
+    const config = await getAppConfig();
+
+    expect((config as { briefFillMode?: string }).briefFillMode).toBe("instant");
+  });
+});

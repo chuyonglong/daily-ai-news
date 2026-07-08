@@ -5,6 +5,7 @@ export type WorkflowMode = "draft_review" | "auto_ready";
 export type ExportTemplate = "wechat" | "zhihu" | "juejin";
 export type BriefLanguage = "zh" | "en" | "ja";
 export type ThemeMode = "auto" | "light" | "dark";
+export type BriefFillMode = "instant" | "typewriter";
 export type CategoryScope = "all" | string;
 
 export type DefaultCategory = {
@@ -41,6 +42,19 @@ export function coerceThemeMode(value: unknown): ThemeMode {
   return isThemeMode(value) ? value : "auto";
 }
 
+export const BRIEF_FILL_MODE_OPTIONS: Array<{ value: BriefFillMode; label: string }> = [
+  { value: "instant", label: "\u4e00\u8d77\u586b\u5145" },
+  { value: "typewriter", label: "\u6253\u5b57\u673a\u6548\u679c" },
+];
+
+export function isBriefFillMode(value: unknown): value is BriefFillMode {
+  return BRIEF_FILL_MODE_OPTIONS.some((option) => option.value === value);
+}
+
+export function coerceBriefFillMode(value: unknown): BriefFillMode {
+  return isBriefFillMode(value) ? value : "instant";
+}
+
 export type AppConfig = {
   openaiApiKey: string;
   openaiBaseUrl: string;
@@ -51,6 +65,7 @@ export type AppConfig = {
   briefMaxItems: number;
   briefLanguage: BriefLanguage;
   themeMode: ThemeMode;
+  briefFillMode: BriefFillMode;
   languageStyle: string;
   workflowMode: WorkflowMode;
   exportTemplate: ExportTemplate;
@@ -66,6 +81,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   briefMaxItems: 15,
   briefLanguage: "zh",
   themeMode: "auto",
+  briefFillMode: "instant",
   languageStyle: "\u4e2d\u6587\u7cbe\u7f16\uff0c\u6e05\u6670\u3001\u514b\u5236\uff0c\u53ef\u76f4\u63a5\u8f6c\u53d1\u5230\u4e2d\u6587\u5185\u5bb9\u7ad9\u3002",
   workflowMode: "draft_review",
   exportTemplate: "wechat",

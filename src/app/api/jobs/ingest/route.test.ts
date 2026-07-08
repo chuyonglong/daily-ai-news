@@ -43,7 +43,7 @@ const { startOrResumeIngestRun } = await import("@/lib/ingest/runs");
 
 describe("ingest run API", () => {
   it("returns the latest persisted ingest run", async () => {
-    const response = await GET();
+    const response = await GET(new Request("http://localhost/api/jobs/ingest"));
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ run: idleRun });
   });
@@ -63,7 +63,7 @@ describe("ingest run API", () => {
 
   it("returns a readable error when no run can be created", async () => {
     vi.mocked(startOrResumeIngestRun).mockRejectedValueOnce(new Error("没有启用的来源"));
-    const response = await POST();
+    const response = await POST(new Request("http://localhost/api/jobs/ingest", { method: "POST" }));
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: "没有启用的来源" });
   });

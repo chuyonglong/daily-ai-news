@@ -1,5 +1,5 @@
 import type { Prisma, Source } from "@prisma/client";
-import { coerceBriefLanguage, coerceThemeMode, DEFAULT_APP_CONFIG, DEFAULT_CATEGORIES, DEFAULT_SOURCES, type AppConfig } from "@/lib/defaults";
+import { coerceBriefFillMode, coerceBriefLanguage, coerceThemeMode, DEFAULT_APP_CONFIG, DEFAULT_CATEGORIES, DEFAULT_SOURCES, type AppConfig } from "@/lib/defaults";
 import { safeNormalizeOpenAIBaseUrl, sortModelIds } from "@/lib/openai-client";
 import { prisma } from "@/lib/prisma";
 import { ensureSqliteSchema } from "@/lib/sqlite-schema";
@@ -21,6 +21,7 @@ function coerceAppConfig(value: Record<string, unknown>): AppConfig {
     openaiModels: sortModelIds(Array.isArray(value.openaiModels) ? value.openaiModels : DEFAULT_APP_CONFIG.openaiModels),
     briefLanguage: coerceBriefLanguage(value.briefLanguage),
     themeMode: coerceThemeMode(value.themeMode),
+    briefFillMode: coerceBriefFillMode(value.briefFillMode),
   } as AppConfig;
 }
 

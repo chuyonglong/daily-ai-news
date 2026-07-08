@@ -21,6 +21,12 @@ describe("theme mode defaults", () => {
   });
 });
 
+describe("brief fill mode defaults", () => {
+  it("defaults generated brief filling to instant mode", () => {
+    expect((DEFAULT_APP_CONFIG as { briefFillMode?: string }).briefFillMode).toBe("instant");
+  });
+});
+
 describe("finance source defaults", () => {
   it("includes the requested finance publishers in the finance category", () => {
     expect(DEFAULT_CATEGORIES.map((category) => category.name)).toContain("\u8d22\u52a1");

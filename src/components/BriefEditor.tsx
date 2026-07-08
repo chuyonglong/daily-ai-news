@@ -1,17 +1,22 @@
 "use client";
 
 import { Clipboard, Download, FileDown, Save, Sparkles } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { markdownToHtml } from "@/lib/brief/export";
 import { defaultCategoryScope } from "@/lib/category-defaults";
-import { BRIEF_LANGUAGE_OPTIONS, type BriefLanguage } from "@/lib/defaults";
+import { BRIEF_LANGUAGE_OPTIONS, type BriefFillMode, type BriefLanguage } from "@/lib/defaults";
+import { nextTypewriterText } from "@/lib/typewriter";
 
 type BriefEditorProps = {
   briefId?: string;
   initialMarkdown: string;
   initialBriefLanguage: BriefLanguage;
+  initialBriefFillMode: BriefFillMode;
   categories: Array<{ id: string; name: string }>;
 };
+
+const TYPEWRITER_CHUNK_SIZE = 12;
+const TYPEWRITER_INTERVAL_MS = 24;
 
 const TEXT = {
   operationFailed: "\u64cd\u4f5c\u5931\u8d25",
@@ -26,6 +31,8 @@ const TEXT = {
   exported: "\u5df2\u6309\u5f53\u524d\u6a21\u677f\u91cd\u65b0\u5bfc\u51fa",
   markdownCopied: "Markdown \u5df2\u590d\u5236",
   htmlCopied: "\u5bcc\u6587\u672c HTML \u5df2\u590d\u5236",
+  draftLoading: "\u8349\u7a3f\u751f\u6210\u4e2d...",
+  previewLoading: "\u5bcc\u6587\u672c\u751f\u6210\u4e2d...",
   title: "\u4eca\u65e5\u8349\u7a3f",
   emptyMeta: "\u5148\u5230\u91c7\u96c6\u4e2d\u5fc3\u6293\u53d6\u8d44\u8baf\uff0c\u518d\u5728\u8fd9\u91cc\u751f\u6210\u8349\u7a3f",
   ingest: "\u53bb\u91c7\u96c6",
@@ -63,19 +70,31 @@ function dateInputValue(date = new Date()) {
   return localDate.toISOString().slice(0, 10);
 }
 
-export function BriefEditor({ briefId, initialMarkdown, initialBriefLanguage, categories }: BriefEditorProps) {
+export function BriefEditor({ briefId, initialMarkdown, initialBriefLanguage, initialBriefFillMode, categories }: BriefEditorProps) {
   const [markdown, setMarkdown] = useState(initialMarkdown);
   const [id, setId] = useState(briefId);
   const [briefLanguage, setBriefLanguage] = useState<BriefLanguage>(initialBriefLanguage);
   const [categoryScope, setCategoryScope] = useState(() => defaultCategoryScope(categories, ""));
   const [publishDate, setPublishDate] = useState(() => dateInputValue());
   const [message, setMessage] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const typewriterTimerRef = useRef<number | null>(null);
 
   const hasBrief = Boolean(id);
   const generateButtonLabel = hasBrief ? TEXT.regenerate : TEXT.generate;
   const wordCount = useMemo(() => markdown.replace(/\s/g, "").length, [markdown]);
   const previewHtml = useMemo(() => (markdown ? markdownToHtml(markdown) : ""), [markdown]);
+  const busy = isPending || isGenerating;
+
+  const clearTypewriter = useCallback(() => {
+    if (typewriterTimerRef.current !== null) {
+      window.clearInterval(typewriterTimerRef.current);
+      typewriterTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => clearTypewriter, [clearTypewriter]);
 
   const runAction = (action: () => Promise<void>, success: string) => {
     setMessage("");
@@ -89,13 +108,41 @@ export function BriefEditor({ briefId, initialMarkdown, initialBriefLanguage, ca
     });
   };
 
-  const generate = () =>
-    runAction(async () => {
+  const generate = async () => {
+    clearTypewriter();
+    setMessage("");
+    setMarkdown("");
+    setIsGenerating(true);
+
+    try {
       if (!categoryScope) throw new Error(TEXT.selectCategory);
       const result = await postJson<{ id: string; markdown: string; html: string }>("/api/jobs/generate-brief", { categoryScope, briefLanguage, publishDate });
       setId(result.id);
+      if (initialBriefFillMode === "typewriter") {
+        let currentLength = 0;
+        typewriterTimerRef.current = window.setInterval(() => {
+          const nextMarkdown = nextTypewriterText(result.markdown, currentLength, TYPEWRITER_CHUNK_SIZE);
+          currentLength = nextMarkdown.length;
+          setMarkdown(nextMarkdown);
+          if (currentLength >= result.markdown.length) {
+            clearTypewriter();
+            setIsGenerating(false);
+            setMessage(hasBrief ? TEXT.regenerated : TEXT.generated);
+          }
+        }, TYPEWRITER_INTERVAL_MS);
+        return;
+      }
+
       setMarkdown(result.markdown);
-    }, hasBrief ? TEXT.regenerated : TEXT.generated);
+      setIsGenerating(false);
+      setMessage(hasBrief ? TEXT.regenerated : TEXT.generated);
+    } catch (error) {
+      clearTypewriter();
+      setMarkdown("");
+      setIsGenerating(false);
+      setMessage(error instanceof Error ? error.message : TEXT.operationFailed);
+    }
+  };
 
   const updateBriefLanguage = (nextLanguage: BriefLanguage) => {
     setBriefLanguage(nextLanguage);
@@ -159,14 +206,14 @@ export function BriefEditor({ briefId, initialMarkdown, initialBriefLanguage, ca
               <FileDown size={16} />
               {TEXT.ingest}
             </a>
-            <select className="toolbar-select" value={briefLanguage} onChange={(event) => updateBriefLanguage(event.target.value as BriefLanguage)} disabled={isPending} title={TEXT.languageTitle}>
+            <select className="toolbar-select" value={briefLanguage} onChange={(event) => updateBriefLanguage(event.target.value as BriefLanguage)} disabled={busy} title={TEXT.languageTitle}>
               {BRIEF_LANGUAGE_OPTIONS.map((option) => (
                 <option value={option.value} key={option.value}>
                   {option.label}
                 </option>
               ))}
             </select>
-            <select className="toolbar-select" value={categoryScope} onChange={(event) => setCategoryScope(event.target.value)} disabled={isPending} title={TEXT.categoryTitle}>
+            <select className="toolbar-select" value={categoryScope} onChange={(event) => setCategoryScope(event.target.value)} disabled={busy} title={TEXT.categoryTitle}>
               <option value="">{TEXT.selectCategory}</option>
               <option value="all">{TEXT.allCategories}</option>
               {categories.map((category) => (
@@ -175,36 +222,41 @@ export function BriefEditor({ briefId, initialMarkdown, initialBriefLanguage, ca
                 </option>
               ))}
             </select>
-            <input className="toolbar-select" type="date" value={publishDate} onChange={(event) => setPublishDate(event.target.value)} disabled={isPending} title={TEXT.publishDateTitle} />
-            <button className="button primary" onClick={generate} disabled={isPending} title={TEXT.generateTitle}>
+            <input className="toolbar-select" type="date" value={publishDate} onChange={(event) => setPublishDate(event.target.value)} disabled={busy} title={TEXT.publishDateTitle} />
+            <button className="button primary" onClick={generate} disabled={busy} title={TEXT.generateTitle}>
               <Sparkles size={16} />
               {generateButtonLabel}
             </button>
-            <button className="button" onClick={save} disabled={isPending || !hasBrief} title={TEXT.saveTitle}>
+            <button className="button" onClick={save} disabled={busy || !hasBrief} title={TEXT.saveTitle}>
               <Save size={16} />
               {TEXT.save}
             </button>
-            <button className="button" onClick={exportDraft} disabled={isPending || !hasBrief} title={TEXT.exportTitle}>
+            <button className="button" onClick={exportDraft} disabled={busy || !hasBrief} title={TEXT.exportTitle}>
               <Download size={16} />
               {TEXT.export}
             </button>
-            <button className="button" onClick={copyMarkdown} disabled={isPending || !markdown} title={TEXT.copyMarkdown}>
+            <button className="button" onClick={copyMarkdown} disabled={busy || !markdown} title={TEXT.copyMarkdown}>
               <Clipboard size={16} />
               Markdown
             </button>
-            <button className="button" onClick={copyHtml} disabled={isPending || !previewHtml} title={TEXT.copyHtml}>
+            <button className="button" onClick={copyHtml} disabled={busy || !previewHtml} title={TEXT.copyHtml}>
               <Clipboard size={16} />
               {TEXT.richText}
             </button>
           </div>
-          <textarea className="editor" value={markdown} onChange={(event) => setMarkdown(event.target.value)} placeholder={TEXT.placeholder} />
+          <div className="editor-shell" aria-busy={isGenerating}>
+            <textarea className="editor" value={markdown} onChange={(event) => setMarkdown(event.target.value)} placeholder={TEXT.placeholder} disabled={isGenerating} />
+            {isGenerating && !markdown ? <div className="content-loading">{TEXT.draftLoading}</div> : null}
+          </div>
         </div>
       </section>
       <aside className="panel">
         <div className="panel-header">
           <h2 className="panel-title">{TEXT.previewTitle}</h2>
         </div>
-        <div className="panel-body preview" dangerouslySetInnerHTML={{ __html: previewHtml || `<p>${TEXT.emptyPreview}</p>` }} />
+        <div className="panel-body preview" aria-busy={isGenerating}>
+          {isGenerating && !previewHtml ? <div className="content-loading static">{TEXT.previewLoading}</div> : <div dangerouslySetInnerHTML={{ __html: previewHtml || `<p>${TEXT.emptyPreview}</p>` }} />}
+        </div>
       </aside>
     </div>
   );

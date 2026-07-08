@@ -486,6 +486,34 @@ button {
   background: var(--control-bg);
 }
 
+.editor-shell {
+  position: relative;
+}
+
+.editor:disabled {
+  opacity: 1;
+}
+
+.content-loading {
+  position: absolute;
+  inset: 1px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--control-bg) 88%, transparent);
+  font-size: 14px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.content-loading.static {
+  position: static;
+  min-height: calc(100vh - 238px);
+  border: 1px dashed var(--border);
+  background: var(--control-bg);
+}
+
 .preview {
   max-height: calc(100vh - 210px);
   overflow: auto;

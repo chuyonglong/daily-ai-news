@@ -1,5 +1,6 @@
 import { BriefEditor } from "@/components/BriefEditor";
 import { listCategories } from "@/lib/categories";
+import { getInitialTodayBriefEditorState } from "@/lib/brief/editor-state";
 import { getTodayBrief } from "@/lib/brief/generate";
 import { defaultCategoryScope } from "@/lib/category-defaults";
 import { prisma } from "@/lib/prisma";
@@ -18,6 +19,7 @@ export default async function HomePage() {
     prisma.source.count({ where: { enabled: true } }),
     prisma.brief.count(),
   ]);
+  const editorState = getInitialTodayBriefEditorState(brief);
 
   return (
     <>
@@ -45,7 +47,7 @@ export default async function HomePage() {
           <div className="stat-value">{brief?.status ?? "未生成"}</div>
         </div>
       </section>
-      <BriefEditor briefId={brief?.id} initialMarkdown={brief?.markdown ?? ""} initialBriefLanguage={config.briefLanguage} categories={categories} />
+      <BriefEditor briefId={editorState.briefId} initialMarkdown={editorState.markdown} initialBriefLanguage={config.briefLanguage} initialBriefFillMode={config.briefFillMode} categories={categories} />
     </>
   );
 }

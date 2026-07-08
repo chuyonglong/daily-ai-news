@@ -3,7 +3,7 @@
 import type { Source } from "@prisma/client";
 import { ListRestart, Save } from "lucide-react";
 import { useState, useTransition } from "react";
-import { BRIEF_LANGUAGE_OPTIONS, THEME_MODE_OPTIONS, type AppConfig } from "@/lib/defaults";
+import { BRIEF_FILL_MODE_OPTIONS, BRIEF_LANGUAGE_OPTIONS, THEME_MODE_OPTIONS, type AppConfig } from "@/lib/defaults";
 
 type SettingsFormProps = {
   initialConfig: AppConfig;
@@ -185,6 +185,16 @@ export function SettingsForm({ initialConfig, initialSources }: SettingsFormProp
             <label htmlFor="themeMode">主题</label>
             <select id="themeMode" value={config.themeMode} onChange={(event) => updateConfig("themeMode", event.target.value as AppConfig["themeMode"])}>
               {THEME_MODE_OPTIONS.map((option) => (
+                <option value={option.value} key={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="briefFillMode">生成结果填充方式</label>
+            <select id="briefFillMode" value={config.briefFillMode} onChange={(event) => updateConfig("briefFillMode", event.target.value as AppConfig["briefFillMode"])}>
+              {BRIEF_FILL_MODE_OPTIONS.map((option) => (
                 <option value={option.value} key={option.value}>
                   {option.label}
                 </option>
