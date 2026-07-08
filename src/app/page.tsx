@@ -1,6 +1,7 @@
 import { BriefEditor } from "@/components/BriefEditor";
 import { listCategories } from "@/lib/categories";
 import { getTodayBrief } from "@/lib/brief/generate";
+import { defaultCategoryScope } from "@/lib/category-defaults";
 import { prisma } from "@/lib/prisma";
 import { ensureDefaults, getAppConfig } from "@/lib/settings";
 
@@ -8,10 +9,11 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   await ensureDefaults();
-  const [brief, config, categories, itemCount, sourceCount, readyCount] = await Promise.all([
-    getTodayBrief(),
+  const categories = await listCategories();
+  const defaultScope = defaultCategoryScope(categories);
+  const [brief, config, itemCount, sourceCount, readyCount] = await Promise.all([
+    getTodayBrief(defaultScope),
     getAppConfig(),
-    listCategories(),
     prisma.item.count(),
     prisma.source.count({ where: { enabled: true } }),
     prisma.brief.count(),

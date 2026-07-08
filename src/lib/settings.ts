@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { ensureSqliteSchema } from "@/lib/sqlite-schema";
 
 const SETTINGS_KEY = "app_config";
+let defaultsReady: Promise<void> | null = null;
 
 function asRecord(value: Prisma.JsonValue | null | undefined): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -23,7 +24,7 @@ function coerceAppConfig(value: Record<string, unknown>): AppConfig {
   } as AppConfig;
 }
 
-export async function ensureDefaults() {
+async function initializeDefaults() {
   await ensureSqliteSchema(prisma);
 
   await prisma.appSetting.upsert({
@@ -58,6 +59,14 @@ export async function ensureDefaults() {
   for (const item of itemsWithoutCategory) {
     await prisma.item.update({ where: { id: item.id }, data: { categoryId: item.source.categoryId ?? aiCategory.id } });
   }
+}
+
+export async function ensureDefaults() {
+  defaultsReady ??= initializeDefaults().catch((error) => {
+    defaultsReady = null;
+    throw error;
+  });
+  await defaultsReady;
 }
 
 export async function getAppConfig(): Promise<AppConfig> {

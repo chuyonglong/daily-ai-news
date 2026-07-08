@@ -4,8 +4,8 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "dev": "next dev --hostname 0.0.0.0 --port 3001",
-        "dev:all": "concurrently -n web,worker -c blue,green \"next dev --hostname 0.0.0.0 --port 3001\" \"tsx scripts/worker.ts\"",
+        "dev": "next dev --webpack --hostname 0.0.0.0 --port 3001",
+        "dev:all": "concurrently -n web,worker -c blue,green \"next dev --webpack --hostname 0.0.0.0 --port 3001\" \"tsx scripts/worker.ts\"",
         "build": "next build",
         "build:exe": "node scripts/build-exe.mjs",
         "start": "next start --hostname 0.0.0.0 --port 3001",

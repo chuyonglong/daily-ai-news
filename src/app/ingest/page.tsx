@@ -1,11 +1,13 @@
 import { IngestCenter } from "@/components/IngestCenter";
 import { listCategories } from "@/lib/categories";
+import { defaultCategoryScope } from "@/lib/category-defaults";
 import { getLatestIngestRunView } from "@/lib/ingest/runs";
 
 export const dynamic = "force-dynamic";
 
 export default async function IngestPage() {
-  const [initialRun, categories] = await Promise.all([getLatestIngestRunView(), listCategories()]);
+  const categories = await listCategories();
+  const initialRun = await getLatestIngestRunView(defaultCategoryScope(categories));
 
   return (
     <>

@@ -3,6 +3,7 @@
 import { Clipboard, Download, FileDown, Save, Sparkles } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { markdownToHtml } from "@/lib/brief/export";
+import { defaultCategoryScope } from "@/lib/category-defaults";
 import { BRIEF_LANGUAGE_OPTIONS, type BriefLanguage } from "@/lib/defaults";
 
 type BriefEditorProps = {
@@ -60,7 +61,7 @@ export function BriefEditor({ briefId, initialMarkdown, initialBriefLanguage, ca
   const [markdown, setMarkdown] = useState(initialMarkdown);
   const [id, setId] = useState(briefId);
   const [briefLanguage, setBriefLanguage] = useState<BriefLanguage>(initialBriefLanguage);
-  const [categoryScope, setCategoryScope] = useState("");
+  const [categoryScope, setCategoryScope] = useState(() => defaultCategoryScope(categories, ""));
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 

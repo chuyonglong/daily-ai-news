@@ -1,4 +1,5 @@
 import { AutoSubmitSelect } from "@/components/AutoSubmitSelect";
+import { defaultCategoryScope } from "@/lib/category-defaults";
 import { prisma } from "@/lib/prisma";
 import { ensureDefaults } from "@/lib/settings";
 import { buildTimeSortHref, ITEM_LIMIT_OPTIONS, parseItemsQuery } from "@/lib/items-query";
@@ -23,9 +24,10 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
     prisma.source.findMany({ orderBy: { name: "asc" } }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
   ]);
+  const selectedCategory = rawParams.category === undefined ? defaultCategoryScope(categories) : params.category;
   const where = {
     ...(params.source ? { sourceId: params.source } : {}),
-    ...(params.category ? { categoryId: params.category } : {}),
+    ...(selectedCategory ? { categoryId: selectedCategory } : {}),
     ...(params.q
       ? {
           OR: [
@@ -71,7 +73,7 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
                   <option value={source.id} key={source.id}>{source.name}</option>
                 ))}
               </select>
-              <select name="category" defaultValue={params.category ?? ""} style={{ width: 180 }}>
+              <select name="category" defaultValue={selectedCategory ?? ""} style={{ width: 180 }}>
                 <option value="">全部类别</option>
                 {categories.map((category) => (
                   <option value={category.id} key={category.id}>{category.name}</option>
@@ -133,7 +135,7 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
           <form className="items-limit-form" action="/items">
             <input type="hidden" name="q" value={params.q ?? ""} />
             <input type="hidden" name="source" value={params.source ?? ""} />
-            <input type="hidden" name="category" value={params.category ?? ""} />
+            <input type="hidden" name="category" value={selectedCategory ?? ""} />
             <input type="hidden" name="tag" value={params.tag ?? ""} />
             <input type="hidden" name="sort" value={params.sort} />
             <AutoSubmitSelect
