@@ -1,0 +1,44 @@
+{
+    "name": "daily-ai-news-desk",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "next dev --hostname 0.0.0.0 --port 3001",
+        "dev:all": "concurrently -n web,worker -c blue,green \"next dev --hostname 0.0.0.0 --port 3001\" \"tsx scripts/worker.ts\"",
+        "build": "next build",
+        "build:exe": "node scripts/build-exe.mjs",
+        "start": "next start --hostname 0.0.0.0 --port 3001",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "db:generate": "prisma generate",
+        "db:migrate": "prisma migrate dev --name init",
+        "db:push": "prisma db push",
+        "seed": "tsx prisma/seed.ts",
+        "worker": "tsx scripts/worker.ts",
+        "db:up": "docker compose -p daily-ai-news up -d",
+        "db:down": "docker compose -p daily-ai-news down"
+    },
+    "dependencies": {
+        "@prisma/client": "6.19.0",
+        "cheerio": "1.2.0",
+        "lucide-react": "1.17.0",
+        "next": "16.2.6",
+        "openai": "6.39.1",
+        "react": "19.2.6",
+        "react-dom": "19.2.6",
+        "rss-parser": "3.13.0"
+    },
+    "devDependencies": {
+        "@types/node": "25.9.1",
+        "@types/react": "19.2.15",
+        "@types/react-dom": "19.2.3",
+        "@yao-pkg/pkg": "^6.21.0",
+        "concurrently": "10.0.0",
+        "prisma": "6.19.0",
+        "tsx": "4.22.3",
+        "typescript": "6.0.3",
+        "vitest": "4.1.7"
+    }
+}

@@ -1,0 +1,195 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum SourceType {
+  RSS
+  HTML
+  HN
+  GITHUB_TRENDING
+}
+
+enum BriefStatus {
+  DRAFT
+  READY
+  ARCHIVED
+}
+
+enum IngestRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum IngestRunSourceStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  EMPTY
+  FAILED
+}
+
+model Source {
+  id                    String     @id @default(cuid())
+  name                  String     @unique
+  type                  SourceType
+  url                   String
+  categoryId            String?
+  category              Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  enabled               Boolean    @default(true)
+  fetchFrequencyMinutes Int        @default(1440)
+  lastFetchedAt         DateTime?
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  items                 Item[]
+
+  @@index([categoryId])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sources   Source[]
+  items     Item[]
+}
+
+model IngestRun {
+  id          String            @id @default(cuid())
+  status      IngestRunStatus   @default(PENDING)
+  trigger     String            @default("manual")
+  categoryScope String          @default("all")
+  message     String            @default("")
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  sources     IngestRunSource[]
+
+  @@index([status])
+  @@index([categoryScope])
+  @@index([createdAt])
+}
+
+model IngestRunSource {
+  id                    String                @id @default(cuid())
+  runId                 String
+  run                   IngestRun             @relation(fields: [runId], references: [id], onDelete: Cascade)
+  sourceId              String
+  name                  String
+  type                  SourceType
+  url                   String
+  categoryId            String?
+  categoryName          String             @default("")
+  fetchFrequencyMinutes Int
+  lastFetchedAt         DateTime?
+  order                 Int
+  status                IngestRunSourceStatus @default(PENDING)
+  fetched               Int                   @default(0)
+  inserted              Int                   @default(0)
+  duplicate             Int                   @default(0)
+  skipped               Int                   @default(0)
+  failed                Int                   @default(0)
+  errors                Json
+  startedAt             DateTime?
+  completedAt           DateTime?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  @@unique([runId, sourceId])
+  @@index([runId, order])
+  @@index([status])
+}
+
+model Item {
+  id           String      @id @default(cuid())
+  sourceId     String
+  source       Source      @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  categoryId   String?
+  category     Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  title        String
+  url          String
+  canonicalUrl String
+  publishedAt  DateTime?
+  content      String?
+  excerpt      String?
+  aiSummary    String?
+  importance   Int         @default(0)
+  fingerprint  String      @unique
+  tags         Json
+  raw          Json?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  briefItems   BriefItem[]
+
+  @@index([publishedAt])
+  @@index([sourceId])
+  @@index([categoryId])
+  @@index([importance])
+}
+
+model Brief {
+  id         String         @id @default(cuid())
+  date       DateTime
+  categoryScope String      @default("all")
+  status     BriefStatus    @default(DRAFT)
+  title      String
+  markdown   String         @default("")
+  html       String         @default("")
+  parameters Json?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  sections   BriefSection[]
+
+  @@unique([date, categoryScope])
+  @@index([categoryScope])
+}
+
+model BriefSection {
+  id        String      @id @default(cuid())
+  briefId   String
+  brief     Brief       @relation(fields: [briefId], references: [id], onDelete: Cascade)
+  name      String
+  order     Int
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  items     BriefItem[]
+
+  @@unique([briefId, order])
+  @@index([briefId])
+}
+
+model BriefItem {
+  id             String       @id @default(cuid())
+  briefSectionId String
+  briefSection   BriefSection @relation(fields: [briefSectionId], references: [id], onDelete: Cascade)
+  itemId         String?
+  item           Item?        @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  title          String
+  url            String
+  sourceName     String
+  publishedAt    DateTime?
+  summary        String
+  whyItMatters   String
+  tags           Json
+  score          Int          @default(0)
+  order          Int
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([briefSectionId, order])
+  @@index([itemId])
+}
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
