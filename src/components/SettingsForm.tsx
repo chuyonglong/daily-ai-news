@@ -1,13 +1,11 @@
 "use client";
 
-import type { Source } from "@prisma/client";
 import { ListRestart, Save } from "lucide-react";
 import { useState, useTransition } from "react";
 import { BRIEF_FILL_MODE_OPTIONS, BRIEF_LANGUAGE_OPTIONS, THEME_MODE_OPTIONS, type AppConfig } from "@/lib/defaults";
 
 type SettingsFormProps = {
   initialConfig: AppConfig;
-  initialSources: Source[];
   categories: Array<{ id: string; name: string }>;
 };
 
@@ -17,19 +15,14 @@ type ModelsResponse = {
   error?: string;
 };
 
-export function SettingsForm({ initialConfig, initialSources, categories }: SettingsFormProps) {
+export function SettingsForm({ initialConfig, categories }: SettingsFormProps) {
   const [config, setConfig] = useState(initialConfig);
-  const [sources, setSources] = useState(initialSources);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const [isFetchingModels, startModelTransition] = useTransition();
 
   const updateConfig = <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => {
     setConfig((current) => ({ ...current, [key]: value }));
-  };
-
-  const updateSource = (id: string, patch: Partial<Source>) => {
-    setSources((current) => current.map((source) => (source.id === id ? { ...source, ...patch } : source)));
   };
 
   const fetchModels = () => {
@@ -69,22 +62,14 @@ export function SettingsForm({ initialConfig, initialSources, categories }: Sett
       const response = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          config,
-          sources: sources.map((source) => ({
-            id: source.id,
-            enabled: source.enabled,
-            fetchFrequencyMinutes: source.fetchFrequencyMinutes,
-          })),
-        }),
+        body: JSON.stringify({ config }),
       });
       if (!response.ok) {
         setMessage(await response.text());
         return;
       }
-      const result = (await response.json()) as { config: AppConfig; sources: Source[] };
+      const result = (await response.json()) as { config: AppConfig };
       setConfig(result.config);
-      setSources(result.sources);
       document.documentElement.dataset.theme = result.config.themeMode;
       setMessage("设置已保存");
     });
@@ -232,36 +217,6 @@ export function SettingsForm({ initialConfig, initialSources, categories }: Sett
             <label htmlFor="languageStyle">简报风格</label>
             <textarea id="languageStyle" className="small" value={config.languageStyle} onChange={(event) => updateConfig("languageStyle", event.target.value)} />
           </div>
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-header">
-          <h2 className="panel-title">资讯来源</h2>
-          <span className="meta">禁用后不会再自动采集</span>
-        </div>
-        <div className="panel-body source-list">
-          {sources.map((source) => (
-            <div className="source-row" key={source.id}>
-              <input
-                type="checkbox"
-                aria-label={`启用 ${source.name}`}
-                checked={source.enabled}
-                onChange={(event) => updateSource(source.id, { enabled: event.target.checked })}
-              />
-              <div>
-                <strong>{source.name}</strong>
-                <div className="meta">{source.type} · {source.url}</div>
-              </div>
-              <input
-                type="number"
-                min={60}
-                value={source.fetchFrequencyMinutes}
-                aria-label={`${source.name} 抓取间隔分钟`}
-                onChange={(event) => updateSource(source.id, { fetchFrequencyMinutes: Number(event.target.value) })}
-              />
-            </div>
-          ))}
         </div>
       </section>
     </div>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { BarChart3, Database, FileDown, FileText, Settings } from "lucide-react";
+import { BarChart3, Database, FileDown, FileText, Rss, Settings } from "lucide-react";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import { getAppConfig } from "@/lib/settings";
 import "./globals.css";
@@ -14,6 +14,7 @@ export const metadata: Metadata = {
 const navItems = [
   { href: "/", label: "今日简报", icon: FileText },
   { href: "/ingest", label: "采集中心", icon: FileDown },
+  { href: "/sources", label: "来源管理", icon: Rss },
   { href: "/items", label: "资讯池", icon: Database },
   { href: "/briefs", label: "历史简报", icon: BarChart3 },
   { href: "/settings", label: "设置", icon: Settings },

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, ChevronDown, ChevronUp, Circle, Loader2, MinusCircle, Plus, Play, RefreshCcw, X, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp, Circle, Loader2, MinusCircle, Play, RefreshCcw, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { IngestRunView } from "@/lib/ingest/runs";
 
@@ -38,8 +38,6 @@ type IngestCenterProps = {
   initialCategories: CategoryOption[];
   initialDefaultCategoryScope: string;
 };
-
-const SOURCE_TYPES = ["RSS", "HTML", "HN", "GITHUB_TRENDING"] as const;
 
 function statusLabel(status: RowStatus) {
   if (status === "running") return "采集中";
@@ -93,34 +91,14 @@ async function startRun(categoryScope: string) {
   return data.run;
 }
 
-async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = (await response.json().catch(() => ({}))) as T & { error?: string };
-  if (!response.ok) throw new Error(data.error ?? "操作失败");
-  return data;
-}
-
 export function IngestCenter({ initialRun, initialCategories, initialDefaultCategoryScope }: IngestCenterProps) {
   const initialCategoryScope = initialDefaultCategoryScope;
-  const [categories, setCategories] = useState(initialCategories);
+  const [categories] = useState(initialCategories);
   const [categoryScope, setCategoryScope] = useState(initialRun.categoryScope || initialCategoryScope);
   const [run, setRun] = useState(initialRun);
   const [rows, setRows] = useState<SourceRow[]>(() => rowsFromRun(initialRun));
   const [message, setMessage] = useState(initialRun.message);
   const [refreshing, setRefreshing] = useState(false);
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [newSource, setNewSource] = useState({
-    name: "",
-    type: "RSS",
-    url: "",
-    categoryId: initialCategoryScope === "all" ? "" : initialCategoryScope,
-    fetchFrequencyMinutes: 720,
-  });
 
   const running = isRunActive(run.status);
   const completed = rows.filter((row) => row.status === "success" || row.status === "empty" || row.status === "failed").length;
@@ -191,43 +169,6 @@ export function IngestCenter({ initialRun, initialCategories, initialDefaultCate
     }
   };
 
-  const createCategory = async () => {
-    const name = newCategoryName.trim();
-    if (!name) {
-      setMessage("类别名称不能为空");
-      return;
-    }
-    try {
-      const result = await postJson<{ category: CategoryOption }>("/api/categories", { name });
-      setCategories((current) => (current.some((category) => category.id === result.category.id) ? current : [...current, result.category]));
-      setNewCategoryName("");
-      setNewSource((current) => ({ ...current, categoryId: result.category.id }));
-      setMessage("类别已新增");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "新增类别失败");
-    }
-  };
-
-  const createSource = async () => {
-    if (!newSource.categoryId) {
-      setMessage("请选择类别");
-      return;
-    }
-    try {
-      await postJson<{ source: unknown }>("/api/jobs/ingest/sources", { ...newSource, enabled: true });
-      setNewSource({ name: "", type: "RSS", url: "", categoryId: newSource.categoryId, fetchFrequencyMinutes: 720 });
-      setMessage("来源已新增");
-      await refreshRun(categoryScope);
-      setAddDialogOpen(false);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "新增来源失败");
-    }
-  };
-
-  const closeAddDialog = () => {
-    setAddDialogOpen(false);
-  };
-
   return (
     <div className="grid">
       <section className="panel">
@@ -245,10 +186,6 @@ export function IngestCenter({ initialRun, initialCategories, initialDefaultCate
                 </option>
               ))}
             </select>
-            <button className="button" onClick={() => setAddDialogOpen(true)} title="新增类别或来源">
-              <Plus size={16} />
-              新增
-            </button>
             <button className="button" onClick={() => refreshRun()} disabled={refreshing} title="重新读取采集状态">
               <RefreshCcw size={16} />
               刷新状态
@@ -290,82 +227,6 @@ export function IngestCenter({ initialRun, initialCategories, initialDefaultCate
         </div>
       </section>
 
-      {addDialogOpen ? (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.currentTarget === event.target && closeAddDialog()}>
-          <section className="modal" role="dialog" aria-modal="true" aria-labelledby="add-source-title">
-            <div className="modal-header">
-              <div>
-                <h2 className="panel-title" id="add-source-title">新增类别与来源</h2>
-                <div className="meta">类别会用于采集过滤和简报分组</div>
-              </div>
-              <button className="button icon-button" onClick={closeAddDialog} title="关闭弹窗" aria-label="关闭弹窗">
-                <X size={16} />
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="form-grid">
-                <div className="field">
-                  <label htmlFor="newCategoryName">类别名称</label>
-                  <div className="toolbar" style={{ flexWrap: "nowrap" }}>
-                    <input id="newCategoryName" value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} placeholder="例如：能源" />
-                    <button className="button" onClick={createCategory} title="新增类别">
-                      <Plus size={16} />
-                      新增
-                    </button>
-                  </div>
-                </div>
-                <div className="field">
-                  <label htmlFor="newSourceCategory">来源类别</label>
-                  <select id="newSourceCategory" value={newSource.categoryId} onChange={(event) => setNewSource((current) => ({ ...current, categoryId: event.target.value }))}>
-                    <option value="">选择类别</option>
-                    {categories.map((category) => (
-                      <option value={category.id} key={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor="newSourceName">来源名称</label>
-                  <input id="newSourceName" value={newSource.name} onChange={(event) => setNewSource((current) => ({ ...current, name: event.target.value }))} placeholder="例如：Finance Feed" />
-                </div>
-                <div className="field">
-                  <label htmlFor="newSourceType">来源类型</label>
-                  <select id="newSourceType" value={newSource.type} onChange={(event) => setNewSource((current) => ({ ...current, type: event.target.value }))}>
-                    {SOURCE_TYPES.map((type) => (
-                      <option value={type} key={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="field full">
-                  <label htmlFor="newSourceUrl">来源 URL</label>
-                  <input id="newSourceUrl" value={newSource.url} onChange={(event) => setNewSource((current) => ({ ...current, url: event.target.value }))} placeholder="https://example.com/feed.xml" />
-                </div>
-                <div className="field">
-                  <label htmlFor="newSourceFrequency">抓取间隔分钟</label>
-                  <input
-                    id="newSourceFrequency"
-                    type="number"
-                    min={60}
-                    value={newSource.fetchFrequencyMinutes}
-                    onChange={(event) => setNewSource((current) => ({ ...current, fetchFrequencyMinutes: Number(event.target.value) }))}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="button" onClick={closeAddDialog}>取消</button>
-              <button className="button primary" onClick={createSource} title="新增来源">
-                <Plus size={16} />
-                新增来源
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
-
       <section className="panel">
         <div className="panel-header">
           <h2 className="panel-title">来源列表</h2>
@@ -373,7 +234,9 @@ export function IngestCenter({ initialRun, initialCategories, initialDefaultCate
         </div>
         <div className="panel-body">
           {rows.length === 0 ? (
-            <div className="empty">当前类别没有启用的来源，请新增来源或选择其他类别。</div>
+            <div className="empty">
+              当前类别没有启用的来源，请到 <a href="/sources">来源管理</a> 添加或启用来源。
+            </div>
           ) : (
             <div className="table-wrap">
               <table>

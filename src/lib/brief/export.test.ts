@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { draftToExport, markdownToHtml } from "@/lib/brief/export";
+import { draftToExport, markdownToHtml, replaceTemplateNote } from "@/lib/brief/export";
 
 const draft = {
   title: "今日 AI 简报",
@@ -28,8 +28,30 @@ describe("brief export", () => {
 
     expect(result.markdown).toContain("# 今日 AI 简报");
     expect(result.markdown).toContain("为什么重要");
+    expect(result.markdown).not.toContain("适合微信公众号");
+    expect(result.markdown).not.toContain("链接保留在条目末尾");
+    expect(result.markdown).not.toContain("For WeChat Official Accounts");
     expect(result.html).toContain("<h1>今日 AI 简报</h1>");
     expect(result.html).toContain("<a href=\"https://openai.com/news\">");
+    expect(result.html).not.toContain("适合微信公众号");
+  });
+
+  it("removes legacy template notes when normalizing existing markdown", () => {
+    const markdown = [
+      "# 今日 AI 简报",
+      "",
+      "> 适合微信公众号：段落短、链接保留在条目末尾。",
+      "",
+      "## 模型发布",
+      "",
+      "- 原文: https://openai.com/news",
+    ].join("\n");
+
+    const normalized = replaceTemplateNote(markdown, "wechat", "zh");
+
+    expect(normalized).not.toContain("适合微信公众号");
+    expect(normalized).not.toContain("链接保留在条目末尾");
+    expect(normalized).toContain("## 模型发布");
   });
 
   it("converts basic markdown blocks", () => {

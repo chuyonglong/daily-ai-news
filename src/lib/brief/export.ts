@@ -81,13 +81,16 @@ function escapeRegExp(value: string) {
 
 export function replaceTemplateNote(markdown: string, template: ExportTemplate, language: BriefLanguage = "zh") {
   const allNotes = Object.values(TEMPLATE_NOTES).flatMap((notes) => Object.values(notes));
-  const notePattern = new RegExp(`^> (?:${allNotes.map(escapeRegExp).join("|")})$`, "m");
-  return markdown.replace(notePattern, `> ${templateNote(template, language)}`);
+  void template;
+  void language;
+  const notePattern = new RegExp(`^> (?:${allNotes.map(escapeRegExp).join("|")})\\r?\\n?`, "m");
+  return markdown.replace(notePattern, "").replace(/\n{3,}/g, "\n\n");
 }
 
 export function draftToMarkdown(draft: BriefDraft, template: ExportTemplate = "wechat", language: BriefLanguage = "zh") {
+  void template;
   const labels = FIELD_LABELS[language];
-  const lines: string[] = [`# ${draft.title}`, "", `> ${templateNote(template, language)}`, ""];
+  const lines: string[] = [`# ${draft.title}`, ""];
   for (const section of draft.sections) {
     if (section.items.length === 0) continue;
     lines.push(`## ${section.name}`, "");

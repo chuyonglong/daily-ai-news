@@ -13,8 +13,27 @@ export type CreateSourceInput = {
   enabled?: boolean;
 };
 
+export type UpdateSourceInput = Partial<CreateSourceInput>;
+
 export function isSourceType(value: unknown): value is SourceType {
   return typeof value === "string" && SOURCE_TYPES.includes(value as SourceType);
+}
+
+async function assertCategory(categoryId: string) {
+  const category = await prisma.category.findUnique({ where: { id: categoryId } });
+  if (!category) throw new Error("类别不存在");
+}
+
+function normalizeFrequency(value: number | undefined) {
+  return Math.max(60, Number(value ?? 1440));
+}
+
+export async function listSourcesForManagement() {
+  await ensureDefaults();
+  return prisma.source.findMany({
+    include: { category: true },
+    orderBy: [{ enabled: "desc" }, { name: "asc" }],
+  });
 }
 
 export async function createSource(input: CreateSourceInput) {
@@ -28,8 +47,7 @@ export async function createSource(input: CreateSourceInput) {
   if (!categoryId) throw new Error("请选择类别");
   if (!isSourceType(input.type)) throw new Error("来源类型不支持");
 
-  const category = await prisma.category.findUnique({ where: { id: categoryId } });
-  if (!category) throw new Error("类别不存在");
+  await assertCategory(categoryId);
 
   return prisma.source.create({
     data: {
@@ -38,8 +56,68 @@ export async function createSource(input: CreateSourceInput) {
       url,
       categoryId,
       enabled: input.enabled ?? true,
-      fetchFrequencyMinutes: Math.max(60, Number(input.fetchFrequencyMinutes ?? 1440)),
+      fetchFrequencyMinutes: normalizeFrequency(input.fetchFrequencyMinutes),
     },
     include: { category: true },
   });
+}
+
+export async function updateSource(id: string, input: UpdateSourceInput) {
+  await ensureDefaults();
+  const sourceId = id.trim();
+  if (!sourceId) throw new Error("来源不存在");
+
+  const data: {
+    name?: string;
+    type?: SourceType;
+    url?: string;
+    categoryId?: string;
+    enabled?: boolean;
+    fetchFrequencyMinutes?: number;
+  } = {};
+
+  if (input.name !== undefined) {
+    const name = input.name.trim();
+    if (!name) throw new Error("来源名称不能为空");
+    data.name = name;
+  }
+
+  if (input.url !== undefined) {
+    const url = input.url.trim();
+    if (!url) throw new Error("来源 URL 不能为空");
+    data.url = url;
+  }
+
+  if (input.type !== undefined) {
+    if (!isSourceType(input.type)) throw new Error("来源类型不支持");
+    data.type = input.type;
+  }
+
+  if (input.categoryId !== undefined) {
+    const categoryId = input.categoryId.trim();
+    if (!categoryId) throw new Error("请选择类别");
+    await assertCategory(categoryId);
+    data.categoryId = categoryId;
+  }
+
+  if (input.enabled !== undefined) {
+    data.enabled = Boolean(input.enabled);
+  }
+
+  if (input.fetchFrequencyMinutes !== undefined) {
+    data.fetchFrequencyMinutes = normalizeFrequency(input.fetchFrequencyMinutes);
+  }
+
+  return prisma.source.update({
+    where: { id: sourceId },
+    data,
+    include: { category: true },
+  });
+}
+
+export async function deleteSource(id: string) {
+  await ensureDefaults();
+  const sourceId = id.trim();
+  if (!sourceId) throw new Error("来源不存在");
+  return prisma.source.delete({ where: { id: sourceId } });
 }
