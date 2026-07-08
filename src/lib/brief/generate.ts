@@ -35,6 +35,7 @@ type SectionKey = "model" | "product" | "openSource" | "research" | "industry";
 type GenerateTodayBriefOptions = {
   categoryScope: string;
   briefLanguage?: BriefLanguage;
+  publishDate?: string;
 };
 
 const SECTION_KEYS: SectionKey[] = ["model", "product", "openSource", "research", "industry"];
@@ -90,6 +91,28 @@ function startOfDay(date = new Date()) {
   return value;
 }
 
+function startOfUtcDay(date = new Date()) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function parseDateInput(value: string | undefined) {
+  const match = value?.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return undefined;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    return undefined;
+  }
+  return date;
+}
+
+function selectedPublishDate(value: string | undefined) {
+  return parseDateInput(value) ?? startOfUtcDay();
+}
+
 export function briefTitle(date = new Date(), language: BriefLanguage = "zh", categoryLabel = "AI") {
   if (language === "en") {
     return `${date.toLocaleDateString("en-US", { month: "long", day: "numeric" })} ${categoryLabel} Brief`;
@@ -119,7 +142,7 @@ function localSummary(item: ItemWithSource) {
 }
 
 function itemPublishTime(item: Pick<Item, "publishedAt" | "createdAt">) {
-  return item.publishedAt ?? item.createdAt;
+  return item.publishedAt ?? undefined;
 }
 
 function normalizeItem(item: DbItemWithSource): ItemWithSource {
@@ -180,12 +203,12 @@ function groupByCategory(items: ItemWithSource[]) {
   return sections;
 }
 
-function fallbackDraft(items: ItemWithSource[], maxItems: number, language: BriefLanguage, categoryScope: string): BriefDraft {
+function fallbackDraft(items: ItemWithSource[], maxItems: number, language: BriefLanguage, categoryScope: string, date = new Date()): BriefDraft {
   const selected = items.slice(0, maxItems);
   const grouped = groupByCategory(selected);
   const categoryLabel = categoryScope === "all" ? "全部类别" : categoryName(selected[0]);
   return {
-    title: briefTitle(new Date(), language, categoryLabel),
+    title: briefTitle(date, language, categoryLabel),
     sections: [...grouped.entries()].map(([name, sectionItems]) => ({
       name,
       items: sectionItems.map((item) => draftItem(item, language)),
@@ -244,7 +267,7 @@ function buildCategoryPrompt(items: ItemWithSource[], maxItems: number, language
   ].join("\n\n");
 }
 
-function coerceAiDraft(response: AiBriefResponse, items: ItemWithSource[], language: BriefLanguage, categoryScope: string): BriefDraft {
+function coerceAiDraft(response: AiBriefResponse, items: ItemWithSource[], language: BriefLanguage, categoryScope: string, date = new Date()): BriefDraft {
   const byId = new Map(items.map((item) => [item.id, item]));
   const categoryNames = [...groupByCategory(items).keys()];
   const sections: BriefSectionDraft[] = categoryNames.map((name) => ({ name, items: [] }));
@@ -272,10 +295,10 @@ function coerceAiDraft(response: AiBriefResponse, items: ItemWithSource[], langu
   }
 
   const categoryLabel = categoryScope === "all" ? "全部类别" : categoryName(items[0]);
-  return { title: briefTitle(new Date(), language, categoryLabel), sections };
+  return { title: briefTitle(date, language, categoryLabel), sections };
 }
 
-async function aiDraft(items: ItemWithSource[], maxItems: number, apiKey: string, baseURL: string, model: string, languageStyle: string, language: BriefLanguage, categoryScope: string) {
+async function aiDraft(items: ItemWithSource[], maxItems: number, apiKey: string, baseURL: string, model: string, languageStyle: string, language: BriefLanguage, categoryScope: string, date: Date) {
   const openai = new OpenAI({ apiKey, baseURL });
   const completion = await openai.chat.completions.create({
     model,
@@ -287,32 +310,23 @@ async function aiDraft(items: ItemWithSource[], maxItems: number, apiKey: string
     ],
   });
   const content = completion.choices[0]?.message.content ?? "{}";
-  return coerceAiDraft(JSON.parse(content) as AiBriefResponse, items, language, categoryScope);
+  return coerceAiDraft(JSON.parse(content) as AiBriefResponse, items, language, categoryScope, date);
 }
 
 export function resolveBriefLanguage(options: Pick<GenerateTodayBriefOptions, "briefLanguage"> | undefined, config: Pick<AppConfig, "briefLanguage">): BriefLanguage {
   return coerceBriefLanguage(options?.briefLanguage ?? config.briefLanguage);
 }
 
-async function getCandidateItems(maxItems: number, categoryScope: string): Promise<ItemWithSource[]> {
-  const since = new Date(Date.now() - 36 * 60 * 60 * 1000);
+async function getCandidateItems(maxItems: number, categoryScope: string, publishDate: Date): Promise<ItemWithSource[]> {
+  const nextDay = new Date(publishDate.getTime() + 24 * 60 * 60 * 1000);
   const categoryFilter = categoryScope === "all" ? {} : { categoryId: categoryScope };
-  const recent = await prisma.item.findMany({
-    where: { ...categoryFilter, OR: [{ publishedAt: { gte: since } }, { createdAt: { gte: since } }] },
+  const items = await prisma.item.findMany({
+    where: { ...categoryFilter, publishedAt: { gte: publishDate, lt: nextDay } },
     include: { category: true, source: { include: { category: true } } },
     orderBy: [{ importance: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
     take: Math.max(maxItems * 3, 30),
   });
-
-  if (recent.length > 0) return recent.map(normalizeItem);
-
-  const fallback = await prisma.item.findMany({
-    where: categoryFilter,
-    include: { category: true, source: { include: { category: true } } },
-    orderBy: [{ importance: "desc" }, { createdAt: "desc" }],
-    take: Math.max(maxItems * 3, 30),
-  });
-  return fallback.map(normalizeItem);
+  return items.map(normalizeItem);
 }
 
 async function replaceBriefSections(briefId: string, draft: BriefDraft) {
@@ -349,15 +363,16 @@ export async function generateTodayBrief(options: GenerateTodayBriefOptions) {
 
   const briefLanguage = resolveBriefLanguage(options, config);
   const maxItems = Math.max(1, Math.min(20, Number(config.briefMaxItems || 12)));
-  const items = await getCandidateItems(maxItems, categoryScope);
-  if (items.length === 0) throw new Error("该类别暂无可生成的资讯，请先采集");
+  const publishDate = selectedPublishDate(options.publishDate);
+  const items = await getCandidateItems(maxItems, categoryScope, publishDate);
+  if (items.length === 0) throw new Error("该发布时间暂无可生成的资讯，请先采集");
 
-  let draft = fallbackDraft(items, maxItems, briefLanguage, categoryScope);
+  let draft = fallbackDraft(items, maxItems, briefLanguage, categoryScope, publishDate);
   let mode: "openai" | "fallback" = "fallback";
 
   if (config.openaiApiKey) {
     try {
-      draft = await aiDraft(items, maxItems, config.openaiApiKey, config.openaiBaseUrl, config.openaiModel, config.languageStyle, briefLanguage, categoryScope);
+      draft = await aiDraft(items, maxItems, config.openaiApiKey, config.openaiBaseUrl, config.openaiModel, config.languageStyle, briefLanguage, categoryScope, publishDate);
       mode = "openai";
     } catch (error) {
       console.error("OpenAI brief generation failed, using fallback draft:", error);
@@ -365,9 +380,9 @@ export async function generateTodayBrief(options: GenerateTodayBriefOptions) {
   }
 
   const exportResult = draftToExport(draft, config.exportTemplate, briefLanguage);
-  const date = startOfDay();
+  const date = publishDate;
   const status: BriefStatus = config.workflowMode === "auto_ready" ? "READY" : "DRAFT";
-  const parameters = { mode, model: config.openaiModel, baseUrl: config.openaiBaseUrl, language: briefLanguage, categoryScope, generatedAt: new Date().toISOString() };
+  const parameters = { mode, model: config.openaiModel, baseUrl: config.openaiBaseUrl, language: briefLanguage, categoryScope, publishDate: publishDate.toISOString().slice(0, 10), generatedAt: new Date().toISOString() };
   const brief = await prisma.brief.upsert({
     where: { date_categoryScope: { date, categoryScope } },
     create: { date, categoryScope, status, title: draft.title, markdown: exportResult.markdown, html: exportResult.html, parameters },

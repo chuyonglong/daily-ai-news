@@ -32,6 +32,7 @@ const TEXT = {
   openIngest: "\u6253\u5f00\u91c7\u96c6\u4e2d\u5fc3",
   languageTitle: "\u9009\u62e9\u751f\u6210\u8bed\u8a00",
   categoryTitle: "\u9009\u62e9\u751f\u6210\u7b80\u62a5\u7684\u7c7b\u522b",
+  publishDateTitle: "\u9009\u62e9\u8d44\u8baf\u53d1\u5e03\u65f6\u95f4",
   allCategories: "\u5168\u90e8\u7c7b\u522b",
   generateTitle: "\u6839\u636e\u8d44\u8baf\u6c60\u751f\u6210\u4eca\u65e5\u8349\u7a3f",
   save: "\u4fdd\u5b58",
@@ -57,11 +58,17 @@ async function postJson<T>(url: string, body?: unknown): Promise<T> {
   return data as T;
 }
 
+function dateInputValue(date = new Date()) {
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000);
+  return localDate.toISOString().slice(0, 10);
+}
+
 export function BriefEditor({ briefId, initialMarkdown, initialBriefLanguage, categories }: BriefEditorProps) {
   const [markdown, setMarkdown] = useState(initialMarkdown);
   const [id, setId] = useState(briefId);
   const [briefLanguage, setBriefLanguage] = useState<BriefLanguage>(initialBriefLanguage);
   const [categoryScope, setCategoryScope] = useState(() => defaultCategoryScope(categories, ""));
+  const [publishDate, setPublishDate] = useState(() => dateInputValue());
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
@@ -85,7 +92,7 @@ export function BriefEditor({ briefId, initialMarkdown, initialBriefLanguage, ca
   const generate = () =>
     runAction(async () => {
       if (!categoryScope) throw new Error(TEXT.selectCategory);
-      const result = await postJson<{ id: string; markdown: string; html: string }>("/api/jobs/generate-brief", { categoryScope, briefLanguage });
+      const result = await postJson<{ id: string; markdown: string; html: string }>("/api/jobs/generate-brief", { categoryScope, briefLanguage, publishDate });
       setId(result.id);
       setMarkdown(result.markdown);
     }, hasBrief ? TEXT.regenerated : TEXT.generated);
@@ -168,6 +175,7 @@ export function BriefEditor({ briefId, initialMarkdown, initialBriefLanguage, ca
                 </option>
               ))}
             </select>
+            <input className="toolbar-select" type="date" value={publishDate} onChange={(event) => setPublishDate(event.target.value)} disabled={isPending} title={TEXT.publishDateTitle} />
             <button className="button primary" onClick={generate} disabled={isPending} title={TEXT.generateTitle}>
               <Sparkles size={16} />
               {generateButtonLabel}

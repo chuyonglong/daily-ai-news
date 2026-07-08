@@ -24,16 +24,16 @@ describe("generate brief API", () => {
     expect(generateTodayBrief).not.toHaveBeenCalled();
   });
 
-  it("passes category scope and language to brief generation", async () => {
+  it("passes category scope, language, and publish date to brief generation", async () => {
     const response = await POST(
       new Request("http://localhost/api/jobs/generate-brief", {
         method: "POST",
-        body: JSON.stringify({ categoryScope: "all", briefLanguage: "en" }),
+        body: JSON.stringify({ categoryScope: "all", briefLanguage: "en", publishDate: "2026-05-30" }),
       }),
     );
 
     expect(response.status).toBe(200);
-    expect(generateTodayBrief).toHaveBeenCalledWith({ categoryScope: "all", briefLanguage: "en" });
+    expect(generateTodayBrief).toHaveBeenCalledWith({ categoryScope: "all", briefLanguage: "en", publishDate: "2026-05-30" });
     await expect(response.json()).resolves.toEqual({
       id: brief.id,
       status: brief.status,
@@ -41,5 +41,19 @@ describe("generate brief API", () => {
       markdown: brief.markdown,
       html: brief.html,
     });
+  });
+
+  it("returns a readable error when no items match the publish date", async () => {
+    vi.mocked(generateTodayBrief).mockRejectedValueOnce(new Error("该发布时间暂无可生成的资讯，请先采集"));
+
+    const response = await POST(
+      new Request("http://localhost/api/jobs/generate-brief", {
+        method: "POST",
+        body: JSON.stringify({ categoryScope: "cat-ai", briefLanguage: "zh", publishDate: "2026-05-30" }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "该发布时间暂无可生成的资讯，请先采集" });
   });
 });

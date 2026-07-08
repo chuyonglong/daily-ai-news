@@ -119,7 +119,7 @@ describe("brief generation language helpers", () => {
   it("persists item publishedAt into generated brief items", async () => {
     mocks.prisma.item.findMany.mockResolvedValue([item]);
 
-    await generateTodayBrief({ categoryScope: "all", briefLanguage: "en" });
+    await generateTodayBrief({ categoryScope: "all", briefLanguage: "en", publishDate: "2026-05-30" });
 
     expect(mocks.prisma.briefSection.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -137,29 +137,32 @@ describe("brief generation language helpers", () => {
     );
   });
 
-  it("uses item createdAt as publish time when publishedAt is missing", async () => {
-    const itemWithoutPublishTime = {
-      ...item,
-      publishedAt: null,
-      createdAt: new Date("2026-05-29T08:30:00Z"),
-    };
-    mocks.prisma.item.findMany.mockResolvedValue([itemWithoutPublishTime]);
+  it("queries items strictly by the selected publishedAt day", async () => {
+    mocks.prisma.item.findMany.mockResolvedValue([item]);
 
-    await generateTodayBrief({ categoryScope: "all", briefLanguage: "en" });
+    await generateTodayBrief({ categoryScope: "cat-ai", briefLanguage: "en", publishDate: "2026-05-30" });
 
-    expect(mocks.prisma.briefSection.create).toHaveBeenCalledWith(
+    expect(mocks.prisma.item.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
-          items: expect.objectContaining({
-            create: [
-              expect.objectContaining({
-                itemId: "item-1",
-                publishedAt: new Date("2026-05-29T08:30:00Z"),
-              }),
-            ],
-          }),
-        }),
+        where: {
+          categoryId: "cat-ai",
+          publishedAt: {
+            gte: new Date("2026-05-30T00:00:00.000Z"),
+            lt: new Date("2026-05-31T00:00:00.000Z"),
+          },
+        },
       }),
     );
+  });
+
+  it("does not fall back to createdAt when no item has the selected publish date", async () => {
+    mocks.prisma.item.findMany.mockResolvedValue([]);
+
+    await expect(generateTodayBrief({ categoryScope: "cat-ai", briefLanguage: "en", publishDate: "2026-05-30" })).rejects.toThrow(
+      "该发布时间暂无可生成的资讯，请先采集",
+    );
+
+    expect(mocks.prisma.item.findMany).toHaveBeenCalledTimes(1);
+    expect(mocks.prisma.brief.upsert).not.toHaveBeenCalled();
   });
 });
