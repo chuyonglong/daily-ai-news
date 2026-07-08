@@ -137,7 +137,25 @@ describe("brief generation language helpers", () => {
     );
   });
 
-  it("queries items strictly by the selected publishedAt day", async () => {
+  it("queries items by the selected publishedAt date range", async () => {
+    mocks.prisma.item.findMany.mockResolvedValue([item]);
+
+    await generateTodayBrief({ categoryScope: "cat-ai", briefLanguage: "en", publishDateFrom: "2026-05-28", publishDateTo: "2026-05-30" });
+
+    expect(mocks.prisma.item.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          categoryId: "cat-ai",
+          publishedAt: {
+            gte: new Date("2026-05-28T00:00:00.000Z"),
+            lt: new Date("2026-05-31T00:00:00.000Z"),
+          },
+        },
+      }),
+    );
+  });
+
+  it("falls back to the selected single day when no date range is provided", async () => {
     mocks.prisma.item.findMany.mockResolvedValue([item]);
 
     await generateTodayBrief({ categoryScope: "cat-ai", briefLanguage: "en", publishDate: "2026-05-30" });
@@ -159,7 +177,7 @@ describe("brief generation language helpers", () => {
     mocks.prisma.item.findMany.mockResolvedValue([]);
 
     await expect(generateTodayBrief({ categoryScope: "cat-ai", briefLanguage: "en", publishDate: "2026-05-30" })).rejects.toThrow(
-      "该发布时间暂无可生成的资讯，请先采集",
+      "该时间段暂无可生成的资讯，请先采集",
     );
 
     expect(mocks.prisma.item.findMany).toHaveBeenCalledTimes(1);

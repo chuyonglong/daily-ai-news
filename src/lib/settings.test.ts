@@ -105,3 +105,28 @@ describe("getAppConfig brief fill mode", () => {
     expect((config as { briefFillMode?: string }).briefFillMode).toBe("instant");
   });
 });
+
+describe("getAppConfig default category scope", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSuccessfulDefaults();
+  });
+
+  it("backfills all categories for old app config rows", async () => {
+    const { getAppConfig } = await importSettings();
+    mocks.prisma.appSetting.findUnique.mockResolvedValue({ value: { briefLanguage: "zh" } });
+
+    const config = await getAppConfig();
+
+    expect((config as { defaultCategoryScope?: string }).defaultCategoryScope).toBe("all");
+  });
+
+  it("coerces blank saved default category scopes to all", async () => {
+    const { getAppConfig } = await importSettings();
+    mocks.prisma.appSetting.findUnique.mockResolvedValue({ value: { defaultCategoryScope: "   " } });
+
+    const config = await getAppConfig();
+
+    expect((config as { defaultCategoryScope?: string }).defaultCategoryScope).toBe("all");
+  });
+});

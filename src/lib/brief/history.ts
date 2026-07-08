@@ -88,6 +88,13 @@ function getCategoryLabel(categoryScope: string, categoryLabels: Map<string, str
   return categoryLabels.get(categoryScope) ?? "未知类别";
 }
 
+export function briefStatusLabel(status: string) {
+  if (status === "DRAFT") return "草稿";
+  if (status === "READY") return "已就绪";
+  if (status === "ARCHIVED") return "已归档";
+  return status || "未生成";
+}
+
 export function toHistoryBriefCards(briefs: HistoryBriefSource[], categoryLabels = new Map<string, string>()): HistoryBriefCard[] {
   return briefs.map((brief) => {
     const sections = brief.sections
@@ -102,7 +109,7 @@ export function toHistoryBriefCards(briefs: HistoryBriefSource[], categoryLabels
       id: brief.id,
       title: brief.title,
       dateLabel: brief.date.toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" }),
-      status: brief.status,
+      status: briefStatusLabel(brief.status),
       markdown: brief.markdown,
       categoryScope: brief.categoryScope,
       categoryLabel: getCategoryLabel(brief.categoryScope, categoryLabels),

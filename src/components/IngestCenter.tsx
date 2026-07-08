@@ -2,7 +2,6 @@
 
 import { CheckCircle2, ChevronDown, ChevronUp, Circle, Loader2, MinusCircle, Plus, Play, RefreshCcw, X, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { defaultCategoryScope } from "@/lib/category-defaults";
 import type { IngestRunView } from "@/lib/ingest/runs";
 
 type IngestResult = {
@@ -37,6 +36,7 @@ type CategoryOption = { id: string; name: string };
 type IngestCenterProps = {
   initialRun: IngestRunView;
   initialCategories: CategoryOption[];
+  initialDefaultCategoryScope: string;
 };
 
 const SOURCE_TYPES = ["RSS", "HTML", "HN", "GITHUB_TRENDING"] as const;
@@ -104,8 +104,8 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   return data;
 }
 
-export function IngestCenter({ initialRun, initialCategories }: IngestCenterProps) {
-  const initialCategoryScope = defaultCategoryScope(initialCategories);
+export function IngestCenter({ initialRun, initialCategories, initialDefaultCategoryScope }: IngestCenterProps) {
+  const initialCategoryScope = initialDefaultCategoryScope;
   const [categories, setCategories] = useState(initialCategories);
   const [categoryScope, setCategoryScope] = useState(initialRun.categoryScope || initialCategoryScope);
   const [run, setRun] = useState(initialRun);

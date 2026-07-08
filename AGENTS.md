@@ -64,3 +64,8 @@ npm run dev
 - TypeScript/业务逻辑改动：优先运行 `npm run typecheck` 和相关 `npm test`。
 - API、数据库或 worker 改动：补充对应路由/库函数测试，并按需验证数据库命令。
 - 前端交互改动：启动本地服务后进行浏览器检查。
+
+
+## 关于浏览器
+- 不能连接浏览器
+

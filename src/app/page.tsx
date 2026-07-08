@@ -2,6 +2,7 @@ import { BriefEditor } from "@/components/BriefEditor";
 import { listCategories } from "@/lib/categories";
 import { getInitialTodayBriefEditorState } from "@/lib/brief/editor-state";
 import { getTodayBrief } from "@/lib/brief/generate";
+import { briefStatusLabel } from "@/lib/brief/history";
 import { defaultCategoryScope } from "@/lib/category-defaults";
 import { prisma } from "@/lib/prisma";
 import { ensureDefaults, getAppConfig } from "@/lib/settings";
@@ -10,11 +11,10 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   await ensureDefaults();
-  const categories = await listCategories();
-  const defaultScope = defaultCategoryScope(categories);
-  const [brief, config, itemCount, sourceCount, readyCount] = await Promise.all([
+  const [categories, config] = await Promise.all([listCategories(), getAppConfig()]);
+  const defaultScope = defaultCategoryScope(categories, config.defaultCategoryScope);
+  const [brief, itemCount, sourceCount, readyCount] = await Promise.all([
     getTodayBrief(defaultScope),
-    getAppConfig(),
     prisma.item.count(),
     prisma.source.count({ where: { enabled: true } }),
     prisma.brief.count(),
@@ -44,10 +44,17 @@ export default async function HomePage() {
         </div>
         <div className="stat">
           <div className="stat-label">今日状态</div>
-          <div className="stat-value">{brief?.status ?? "未生成"}</div>
+          <div className="stat-value">{briefStatusLabel(brief?.status ?? "")}</div>
         </div>
       </section>
-      <BriefEditor briefId={editorState.briefId} initialMarkdown={editorState.markdown} initialBriefLanguage={config.briefLanguage} initialBriefFillMode={config.briefFillMode} categories={categories} />
+      <BriefEditor
+        briefId={editorState.briefId}
+        initialMarkdown={editorState.markdown}
+        initialBriefLanguage={config.briefLanguage}
+        initialBriefFillMode={config.briefFillMode}
+        initialCategoryScope={defaultScope}
+        categories={categories}
+      />
     </>
   );
 }

@@ -1,7 +1,7 @@
 import { AutoSubmitSelect } from "@/components/AutoSubmitSelect";
 import { defaultCategoryScope } from "@/lib/category-defaults";
 import { prisma } from "@/lib/prisma";
-import { ensureDefaults } from "@/lib/settings";
+import { ensureDefaults, getAppConfig } from "@/lib/settings";
 import { buildTimeSortHref, ITEM_LIMIT_OPTIONS, parseItemsQuery } from "@/lib/items-query";
 import { stringArrayFromJson } from "@/lib/json-fields";
 
@@ -20,11 +20,12 @@ export default async function ItemsPage({ searchParams }: ItemsPageProps) {
   await ensureDefaults();
   const rawParams = await searchParams;
   const params = parseItemsQuery(rawParams);
-  const [sources, categories] = await Promise.all([
+  const [sources, categories, config] = await Promise.all([
     prisma.source.findMany({ orderBy: { name: "asc" } }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
+    getAppConfig(),
   ]);
-  const selectedCategory = rawParams.category === undefined ? defaultCategoryScope(categories) : params.category;
+  const selectedCategory = rawParams.category === undefined ? defaultCategoryScope(categories, config.defaultCategoryScope) : params.category;
   const where = {
     ...(params.source ? { sourceId: params.source } : {}),
     ...(selectedCategory ? { categoryId: selectedCategory } : {}),

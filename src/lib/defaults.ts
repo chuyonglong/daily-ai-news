@@ -60,6 +60,7 @@ export type AppConfig = {
   openaiBaseUrl: string;
   openaiModel: string;
   openaiModels: string[];
+  defaultCategoryScope: CategoryScope;
   dailyRunTime: string;
   briefMinItems: number;
   briefMaxItems: number;
@@ -76,6 +77,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   openaiBaseUrl: DEFAULT_OPENAI_BASE_URL,
   openaiModel: "gpt-4.1-mini",
   openaiModels: [],
+  defaultCategoryScope: "all",
   dailyRunTime: "08:30",
   briefMinItems: 8,
   briefMaxItems: 15,

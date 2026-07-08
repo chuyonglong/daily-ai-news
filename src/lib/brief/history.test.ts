@@ -41,7 +41,7 @@ describe("history brief view models", () => {
     expect(cards[0]).toMatchObject({
       id: "brief-1",
       title: "July 1 AI Brief",
-      status: "DRAFT",
+      status: "草稿",
       markdown: briefs[0].markdown,
       categoryScope: "cat-ai",
       categoryLabel: "AI",
@@ -51,6 +51,7 @@ describe("history brief view models", () => {
     expect(cards[0].previewHtml).toContain("<h1>July 1 AI Brief</h1>");
     expect(cards[0].previewHtml).toContain('<a href="https://example.com/model">');
     expect(cards[1]).toMatchObject({
+      status: "已就绪",
       categoryScope: "all",
       categoryLabel: "全部类别",
     });

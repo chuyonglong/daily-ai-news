@@ -7,20 +7,25 @@ const categories = [
 ];
 
 describe("category defaults", () => {
-  it("uses the AI category as the default when it exists", () => {
+  it("uses all categories as the default selection", () => {
     expect(findDefaultCategoryId(categories)).toBe("cat-ai");
-    expect(defaultCategoryScope(categories)).toBe("cat-ai");
+    expect(defaultCategoryScope(categories)).toBe("all");
   });
 
-  it("keeps the original fallback when the AI category is unavailable", () => {
+  it("uses the saved default category when it is available", () => {
+    expect(defaultCategoryScope(categories, "cat-finance")).toBe("cat-finance");
+    expect(defaultCategoryScope(categories, "all")).toBe("all");
+  });
+
+  it("keeps the original fallback when the saved category is unavailable", () => {
     expect(findDefaultCategoryId([{ id: "cat-finance", name: "财务" }])).toBeUndefined();
-    expect(defaultCategoryScope([{ id: "cat-finance", name: "财务" }])).toBe("all");
-    expect(defaultCategoryScope([], "")).toBe("");
+    expect(defaultCategoryScope([{ id: "cat-finance", name: "财务" }], "cat-ai")).toBe("all");
+    expect(defaultCategoryScope([], "cat-ai", "")).toBe("");
   });
 
-  it("preserves explicit category choices over the AI default", () => {
+  it("preserves explicit category choices over the saved default", () => {
     expect(selectedCategoryOrDefault("cat-finance", categories)).toBe("cat-finance");
     expect(selectedCategoryOrDefault(" all ", categories)).toBe("all");
-    expect(selectedCategoryOrDefault(undefined, categories)).toBe("cat-ai");
+    expect(selectedCategoryOrDefault(undefined, categories, "cat-ai")).toBe("cat-ai");
   });
 });

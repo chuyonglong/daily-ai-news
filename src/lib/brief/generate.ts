@@ -36,6 +36,8 @@ type GenerateTodayBriefOptions = {
   categoryScope: string;
   briefLanguage?: BriefLanguage;
   publishDate?: string;
+  publishDateFrom?: string;
+  publishDateTo?: string;
 };
 
 const SECTION_KEYS: SectionKey[] = ["model", "product", "openSource", "research", "industry"];
@@ -111,6 +113,17 @@ function parseDateInput(value: string | undefined) {
 
 function selectedPublishDate(value: string | undefined) {
   return parseDateInput(value) ?? startOfUtcDay();
+}
+
+function selectedPublishDateRange(options: Pick<GenerateTodayBriefOptions, "publishDate" | "publishDateFrom" | "publishDateTo">) {
+  const from = parseDateInput(options.publishDateFrom) ?? selectedPublishDate(options.publishDate);
+  const parsedTo = parseDateInput(options.publishDateTo);
+  const to = parsedTo && parsedTo.getTime() >= from.getTime() ? parsedTo : from;
+  return {
+    from,
+    to,
+    toExclusive: new Date(to.getTime() + 24 * 60 * 60 * 1000),
+  };
 }
 
 export function briefTitle(date = new Date(), language: BriefLanguage = "zh", categoryLabel = "AI") {
@@ -317,11 +330,10 @@ export function resolveBriefLanguage(options: Pick<GenerateTodayBriefOptions, "b
   return coerceBriefLanguage(options?.briefLanguage ?? config.briefLanguage);
 }
 
-async function getCandidateItems(maxItems: number, categoryScope: string, publishDate: Date): Promise<ItemWithSource[]> {
-  const nextDay = new Date(publishDate.getTime() + 24 * 60 * 60 * 1000);
+async function getCandidateItems(maxItems: number, categoryScope: string, publishDateFrom: Date, publishDateToExclusive: Date): Promise<ItemWithSource[]> {
   const categoryFilter = categoryScope === "all" ? {} : { categoryId: categoryScope };
   const items = await prisma.item.findMany({
-    where: { ...categoryFilter, publishedAt: { gte: publishDate, lt: nextDay } },
+    where: { ...categoryFilter, publishedAt: { gte: publishDateFrom, lt: publishDateToExclusive } },
     include: { category: true, source: { include: { category: true } } },
     orderBy: [{ importance: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
     take: Math.max(maxItems * 3, 30),
@@ -363,9 +375,10 @@ export async function generateTodayBrief(options: GenerateTodayBriefOptions) {
 
   const briefLanguage = resolveBriefLanguage(options, config);
   const maxItems = Math.max(1, Math.min(20, Number(config.briefMaxItems || 12)));
-  const publishDate = selectedPublishDate(options.publishDate);
-  const items = await getCandidateItems(maxItems, categoryScope, publishDate);
-  if (items.length === 0) throw new Error("该发布时间暂无可生成的资讯，请先采集");
+  const publishDateRange = selectedPublishDateRange(options);
+  const publishDate = publishDateRange.from;
+  const items = await getCandidateItems(maxItems, categoryScope, publishDateRange.from, publishDateRange.toExclusive);
+  if (items.length === 0) throw new Error("该时间段暂无可生成的资讯，请先采集");
 
   let draft = fallbackDraft(items, maxItems, briefLanguage, categoryScope, publishDate);
   let mode: "openai" | "fallback" = "fallback";
@@ -382,7 +395,17 @@ export async function generateTodayBrief(options: GenerateTodayBriefOptions) {
   const exportResult = draftToExport(draft, config.exportTemplate, briefLanguage);
   const date = publishDate;
   const status: BriefStatus = config.workflowMode === "auto_ready" ? "READY" : "DRAFT";
-  const parameters = { mode, model: config.openaiModel, baseUrl: config.openaiBaseUrl, language: briefLanguage, categoryScope, publishDate: publishDate.toISOString().slice(0, 10), generatedAt: new Date().toISOString() };
+  const parameters = {
+    mode,
+    model: config.openaiModel,
+    baseUrl: config.openaiBaseUrl,
+    language: briefLanguage,
+    categoryScope,
+    publishDate: publishDate.toISOString().slice(0, 10),
+    publishDateFrom: publishDateRange.from.toISOString().slice(0, 10),
+    publishDateTo: publishDateRange.to.toISOString().slice(0, 10),
+    generatedAt: new Date().toISOString(),
+  };
   const brief = await prisma.brief.upsert({
     where: { date_categoryScope: { date, categoryScope } },
     create: { date, categoryScope, status, title: draft.title, markdown: exportResult.markdown, html: exportResult.html, parameters },

@@ -2,7 +2,7 @@ import { BriefHistoryBrowser } from "@/components/BriefHistoryBrowser";
 import { parseBriefHistoryQuery, toHistoryBriefCards } from "@/lib/brief/history";
 import { defaultCategoryScope } from "@/lib/category-defaults";
 import { prisma } from "@/lib/prisma";
-import { ensureDefaults } from "@/lib/settings";
+import { ensureDefaults, getAppConfig } from "@/lib/settings";
 import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +15,11 @@ export default async function BriefsPage({ searchParams }: BriefsPageProps) {
   await ensureDefaults();
   const rawParams = await searchParams;
   const filters = parseBriefHistoryQuery(rawParams);
-  const categories = await prisma.category.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } });
-  const selectedCategory = rawParams.category === undefined ? defaultCategoryScope(categories) : filters.category;
+  const [categories, config] = await Promise.all([
+    prisma.category.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    getAppConfig(),
+  ]);
+  const selectedCategory = rawParams.category === undefined ? defaultCategoryScope(categories, config.defaultCategoryScope) : filters.category;
   const dateFilter: Prisma.DateTimeFilter = {};
   if (filters.fromDate) dateFilter.gte = filters.fromDate;
   if (filters.toExclusiveDate) dateFilter.lt = filters.toExclusiveDate;

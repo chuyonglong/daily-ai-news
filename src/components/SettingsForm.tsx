@@ -8,6 +8,7 @@ import { BRIEF_FILL_MODE_OPTIONS, BRIEF_LANGUAGE_OPTIONS, THEME_MODE_OPTIONS, ty
 type SettingsFormProps = {
   initialConfig: AppConfig;
   initialSources: Source[];
+  categories: Array<{ id: string; name: string }>;
 };
 
 type ModelsResponse = {
@@ -16,7 +17,7 @@ type ModelsResponse = {
   error?: string;
 };
 
-export function SettingsForm({ initialConfig, initialSources }: SettingsFormProps) {
+export function SettingsForm({ initialConfig, initialSources, categories }: SettingsFormProps) {
   const [config, setConfig] = useState(initialConfig);
   const [sources, setSources] = useState(initialSources);
   const [message, setMessage] = useState("");
@@ -162,6 +163,17 @@ export function SettingsForm({ initialConfig, initialSources }: SettingsFormProp
           <div className="field">
             <label htmlFor="dailyRunTime">每日生成时间</label>
             <input id="dailyRunTime" type="time" value={config.dailyRunTime} onChange={(event) => updateConfig("dailyRunTime", event.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="defaultCategoryScope">默认类别</label>
+            <select id="defaultCategoryScope" value={config.defaultCategoryScope} onChange={(event) => updateConfig("defaultCategoryScope", event.target.value)}>
+              <option value="all">全部类别</option>
+              {categories.map((category) => (
+                <option value={category.id} key={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="field">
             <label htmlFor="briefMinItems">最少条数</label>

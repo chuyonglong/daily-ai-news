@@ -19,6 +19,7 @@ function coerceAppConfig(value: Record<string, unknown>): AppConfig {
     openaiBaseUrl: safeNormalizeOpenAIBaseUrl(String(value.openaiBaseUrl ?? DEFAULT_APP_CONFIG.openaiBaseUrl)),
     openaiModel: String(value.openaiModel ?? DEFAULT_APP_CONFIG.openaiModel),
     openaiModels: sortModelIds(Array.isArray(value.openaiModels) ? value.openaiModels : DEFAULT_APP_CONFIG.openaiModels),
+    defaultCategoryScope: String(value.defaultCategoryScope ?? DEFAULT_APP_CONFIG.defaultCategoryScope).trim() || DEFAULT_APP_CONFIG.defaultCategoryScope,
     briefLanguage: coerceBriefLanguage(value.briefLanguage),
     themeMode: coerceThemeMode(value.themeMode),
     briefFillMode: coerceBriefFillMode(value.briefFillMode),

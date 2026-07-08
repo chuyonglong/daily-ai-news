@@ -1,9 +1,8 @@
 "use client";
 
-import { Clipboard, Download, FileDown, Save, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { markdownToHtml } from "@/lib/brief/export";
-import { defaultCategoryScope } from "@/lib/category-defaults";
 import { BRIEF_LANGUAGE_OPTIONS, type BriefFillMode, type BriefLanguage } from "@/lib/defaults";
 import { nextTypewriterText } from "@/lib/typewriter";
 
@@ -12,6 +11,7 @@ type BriefEditorProps = {
   initialMarkdown: string;
   initialBriefLanguage: BriefLanguage;
   initialBriefFillMode: BriefFillMode;
+  initialCategoryScope: string;
   categories: Array<{ id: string; name: string }>;
 };
 
@@ -27,28 +27,16 @@ const TEXT = {
   generated: "\u5df2\u751f\u6210\u4eca\u65e5\u8349\u7a3f",
   languageSaved: "\u7b80\u62a5\u8bed\u8a00\u5df2\u4fdd\u5b58",
   noDraft: "\u8fd8\u6ca1\u6709\u8349\u7a3f\uff0c\u8bf7\u5148\u751f\u6210\u4eca\u65e5\u7b80\u62a5\u3002",
-  saved: "\u5df2\u4fdd\u5b58\u8349\u7a3f",
-  exported: "\u5df2\u6309\u5f53\u524d\u6a21\u677f\u91cd\u65b0\u5bfc\u51fa",
-  markdownCopied: "Markdown \u5df2\u590d\u5236",
-  htmlCopied: "\u5bcc\u6587\u672c HTML \u5df2\u590d\u5236",
   draftLoading: "\u8349\u7a3f\u751f\u6210\u4e2d...",
   previewLoading: "\u5bcc\u6587\u672c\u751f\u6210\u4e2d...",
   title: "\u4eca\u65e5\u8349\u7a3f",
   emptyMeta: "\u5148\u5230\u91c7\u96c6\u4e2d\u5fc3\u6293\u53d6\u8d44\u8baf\uff0c\u518d\u5728\u8fd9\u91cc\u751f\u6210\u8349\u7a3f",
-  ingest: "\u53bb\u91c7\u96c6",
-  openIngest: "\u6253\u5f00\u91c7\u96c6\u4e2d\u5fc3",
   languageTitle: "\u9009\u62e9\u751f\u6210\u8bed\u8a00",
   categoryTitle: "\u9009\u62e9\u751f\u6210\u7b80\u62a5\u7684\u7c7b\u522b",
-  publishDateTitle: "\u9009\u62e9\u8d44\u8baf\u53d1\u5e03\u65f6\u95f4",
+  publishDateFromTitle: "\u9009\u62e9\u8d44\u8baf\u53d1\u5e03\u5f00\u59cb\u65e5\u671f",
+  publishDateToTitle: "\u9009\u62e9\u8d44\u8baf\u53d1\u5e03\u7ed3\u675f\u65e5\u671f",
   allCategories: "\u5168\u90e8\u7c7b\u522b",
   generateTitle: "\u6839\u636e\u8d44\u8baf\u6c60\u751f\u6210\u4eca\u65e5\u8349\u7a3f",
-  save: "\u4fdd\u5b58",
-  saveTitle: "\u4fdd\u5b58\u5f53\u524d Markdown \u8349\u7a3f",
-  export: "\u5bfc\u51fa",
-  exportTitle: "\u6309\u8bbe\u7f6e\u9875\u6a21\u677f\u91cd\u65b0\u751f\u6210\u5bfc\u51fa\u5185\u5bb9",
-  copyMarkdown: "\u590d\u5236 Markdown",
-  copyHtml: "\u590d\u5236\u5bcc\u6587\u672c HTML",
-  richText: "\u5bcc\u6587\u672c",
   previewTitle: "\u5bcc\u6587\u672c\u9884\u89c8",
   emptyPreview: "\u6682\u65e0\u9884\u89c8",
   placeholder: "\u5148\u5230\u91c7\u96c6\u4e2d\u5fc3\u6293\u53d6\u8d44\u8baf\uff0c\u518d\u9009\u62e9\u7c7b\u522b\u5e76\u70b9\u51fb\u201c\u751f\u6210\u201d\u3002",
@@ -70,12 +58,13 @@ function dateInputValue(date = new Date()) {
   return localDate.toISOString().slice(0, 10);
 }
 
-export function BriefEditor({ briefId, initialMarkdown, initialBriefLanguage, initialBriefFillMode, categories }: BriefEditorProps) {
+export function BriefEditor({ briefId, initialMarkdown, initialBriefLanguage, initialBriefFillMode, initialCategoryScope, categories }: BriefEditorProps) {
   const [markdown, setMarkdown] = useState(initialMarkdown);
   const [id, setId] = useState(briefId);
   const [briefLanguage, setBriefLanguage] = useState<BriefLanguage>(initialBriefLanguage);
-  const [categoryScope, setCategoryScope] = useState(() => defaultCategoryScope(categories, ""));
-  const [publishDate, setPublishDate] = useState(() => dateInputValue());
+  const [categoryScope, setCategoryScope] = useState(initialCategoryScope);
+  const [publishDateFrom, setPublishDateFrom] = useState(() => dateInputValue());
+  const [publishDateTo, setPublishDateTo] = useState(() => dateInputValue());
   const [message, setMessage] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -116,7 +105,7 @@ export function BriefEditor({ briefId, initialMarkdown, initialBriefLanguage, in
 
     try {
       if (!categoryScope) throw new Error(TEXT.selectCategory);
-      const result = await postJson<{ id: string; markdown: string; html: string }>("/api/jobs/generate-brief", { categoryScope, briefLanguage, publishDate });
+      const result = await postJson<{ id: string; markdown: string; html: string }>("/api/jobs/generate-brief", { categoryScope, briefLanguage, publishDateFrom, publishDateTo });
       setId(result.id);
       if (initialBriefFillMode === "typewriter") {
         let currentLength = 0;
@@ -156,40 +145,6 @@ export function BriefEditor({ briefId, initialMarkdown, initialBriefLanguage, in
     }, TEXT.languageSaved);
   };
 
-  const save = () =>
-    runAction(async () => {
-      if (!id) throw new Error(TEXT.noDraft);
-      const response = await fetch(`/api/briefs/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ markdown }),
-      });
-      if (!response.ok) throw new Error(await response.text());
-    }, TEXT.saved);
-
-  const exportDraft = () =>
-    runAction(async () => {
-      if (!id) throw new Error(TEXT.noDraft);
-      const result = await postJson<{ markdown: string; html: string }>(`/api/briefs/${id}/export`, { markdown });
-      setMarkdown(result.markdown);
-    }, TEXT.exported);
-
-  const copyMarkdown = () =>
-    runAction(async () => {
-      await navigator.clipboard.writeText(markdown);
-    }, TEXT.markdownCopied);
-
-  const copyHtml = () =>
-    runAction(async () => {
-      const blob = new Blob([previewHtml], { type: "text/html" });
-      const fallback = async () => navigator.clipboard.writeText(previewHtml);
-      if (typeof ClipboardItem === "undefined") {
-        await fallback();
-        return;
-      }
-      await navigator.clipboard.write([new ClipboardItem({ "text/html": blob })]).catch(fallback);
-    }, TEXT.htmlCopied);
-
   return (
     <div className="grid brief-editor-grid">
       <section className="panel">
@@ -202,10 +157,6 @@ export function BriefEditor({ briefId, initialMarkdown, initialBriefLanguage, in
         </div>
         <div className="panel-body">
           <div className="toolbar" style={{ marginBottom: 12 }}>
-            <a className="button" href="/ingest" title={TEXT.openIngest}>
-              <FileDown size={16} />
-              {TEXT.ingest}
-            </a>
             <select className="toolbar-select" value={briefLanguage} onChange={(event) => updateBriefLanguage(event.target.value as BriefLanguage)} disabled={busy} title={TEXT.languageTitle}>
               {BRIEF_LANGUAGE_OPTIONS.map((option) => (
                 <option value={option.value} key={option.value}>
@@ -222,26 +173,11 @@ export function BriefEditor({ briefId, initialMarkdown, initialBriefLanguage, in
                 </option>
               ))}
             </select>
-            <input className="toolbar-select" type="date" value={publishDate} onChange={(event) => setPublishDate(event.target.value)} disabled={busy} title={TEXT.publishDateTitle} />
+            <input className="toolbar-select" type="date" value={publishDateFrom} onChange={(event) => setPublishDateFrom(event.target.value)} disabled={busy} title={TEXT.publishDateFromTitle} />
+            <input className="toolbar-select" type="date" value={publishDateTo} onChange={(event) => setPublishDateTo(event.target.value)} disabled={busy} title={TEXT.publishDateToTitle} />
             <button className="button primary" onClick={generate} disabled={busy} title={TEXT.generateTitle}>
               <Sparkles size={16} />
               {generateButtonLabel}
-            </button>
-            <button className="button" onClick={save} disabled={busy || !hasBrief} title={TEXT.saveTitle}>
-              <Save size={16} />
-              {TEXT.save}
-            </button>
-            <button className="button" onClick={exportDraft} disabled={busy || !hasBrief} title={TEXT.exportTitle}>
-              <Download size={16} />
-              {TEXT.export}
-            </button>
-            <button className="button" onClick={copyMarkdown} disabled={busy || !markdown} title={TEXT.copyMarkdown}>
-              <Clipboard size={16} />
-              Markdown
-            </button>
-            <button className="button" onClick={copyHtml} disabled={busy || !previewHtml} title={TEXT.copyHtml}>
-              <Clipboard size={16} />
-              {TEXT.richText}
             </button>
           </div>
           <div className="editor-shell" aria-busy={isGenerating}>
