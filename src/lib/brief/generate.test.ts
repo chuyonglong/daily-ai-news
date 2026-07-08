@@ -110,6 +110,15 @@ describe("brief generation language helpers", () => {
     expect(briefTitle(date, "zh")).toContain("AI 资讯简报");
   });
 
+  it("uses a date range in localized titles when multiple publish dates are selected", () => {
+    const from = new Date("2026-05-28T00:00:00Z");
+    const to = new Date("2026-05-30T00:00:00Z");
+
+    expect(briefTitle(from, "en", "AI", to)).toBe("May 28-May 30 AI Brief");
+    expect(briefTitle(from, "ja", "AI", to)).toBe("5月28日〜5月30日 AI ニュースブリーフ");
+    expect(briefTitle(from, "zh", "AI", to)).toBe("5月28日-5月30日 AI 资讯简报");
+  });
+
   it("resolves language from options, config, then default", () => {
     expect(resolveBriefLanguage({ briefLanguage: "en" }, { briefLanguage: "zh" })).toBe("en");
     expect(resolveBriefLanguage(undefined, { briefLanguage: "ja" })).toBe("ja");
@@ -151,6 +160,16 @@ describe("brief generation language helpers", () => {
             lt: new Date("2026-05-31T00:00:00.000Z"),
           },
         },
+      }),
+    );
+    expect(mocks.prisma.brief.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          title: "May 28-May 30 AI Brief",
+        }),
+        update: expect.objectContaining({
+          title: "May 28-May 30 AI Brief",
+        }),
       }),
     );
   });

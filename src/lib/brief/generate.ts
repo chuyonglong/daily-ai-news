@@ -126,14 +126,35 @@ function selectedPublishDateRange(options: Pick<GenerateTodayBriefOptions, "publ
   };
 }
 
-export function briefTitle(date = new Date(), language: BriefLanguage = "zh", categoryLabel = "AI") {
+function sameUtcDay(left: Date, right: Date) {
+  return left.getUTCFullYear() === right.getUTCFullYear() && left.getUTCMonth() === right.getUTCMonth() && left.getUTCDate() === right.getUTCDate();
+}
+
+function briefDateLabel(date: Date, language: BriefLanguage, endDate?: Date) {
+  if (!endDate || sameUtcDay(date, endDate)) {
+    if (language === "en") return date.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+    if (language === "ja") return date.toLocaleDateString("ja-JP", { month: "long", day: "numeric" });
+    return date.toLocaleDateString("zh-CN", { month: "long", day: "numeric" });
+  }
+
   if (language === "en") {
-    return `${date.toLocaleDateString("en-US", { month: "long", day: "numeric" })} ${categoryLabel} Brief`;
+    return `${date.toLocaleDateString("en-US", { month: "long", day: "numeric" })}-${endDate.toLocaleDateString("en-US", { month: "long", day: "numeric" })}`;
   }
   if (language === "ja") {
-    return `${date.toLocaleDateString("ja-JP", { month: "long", day: "numeric" })} ${categoryLabel} ニュースブリーフ`;
+    return `${date.toLocaleDateString("ja-JP", { month: "long", day: "numeric" })}〜${endDate.toLocaleDateString("ja-JP", { month: "long", day: "numeric" })}`;
   }
-  return `${date.toLocaleDateString("zh-CN", { month: "long", day: "numeric" })} ${categoryLabel} 资讯简报`;
+  return `${date.toLocaleDateString("zh-CN", { month: "long", day: "numeric" })}-${endDate.toLocaleDateString("zh-CN", { month: "long", day: "numeric" })}`;
+}
+
+export function briefTitle(date = new Date(), language: BriefLanguage = "zh", categoryLabel = "AI", endDate?: Date) {
+  const dateLabel = briefDateLabel(date, language, endDate);
+  if (language === "en") {
+    return `${dateLabel} ${categoryLabel} Brief`;
+  }
+  if (language === "ja") {
+    return `${dateLabel} ${categoryLabel} ニュースブリーフ`;
+  }
+  return `${dateLabel} ${categoryLabel} 资讯简报`;
 }
 
 function classify(item: ItemWithSource): SectionKey {
@@ -216,12 +237,12 @@ function groupByCategory(items: ItemWithSource[]) {
   return sections;
 }
 
-function fallbackDraft(items: ItemWithSource[], maxItems: number, language: BriefLanguage, categoryScope: string, date = new Date()): BriefDraft {
+function fallbackDraft(items: ItemWithSource[], maxItems: number, language: BriefLanguage, categoryScope: string, date = new Date(), endDate?: Date): BriefDraft {
   const selected = items.slice(0, maxItems);
   const grouped = groupByCategory(selected);
   const categoryLabel = categoryScope === "all" ? "全部类别" : categoryName(selected[0]);
   return {
-    title: briefTitle(date, language, categoryLabel),
+    title: briefTitle(date, language, categoryLabel, endDate),
     sections: [...grouped.entries()].map(([name, sectionItems]) => ({
       name,
       items: sectionItems.map((item) => draftItem(item, language)),
@@ -280,7 +301,7 @@ function buildCategoryPrompt(items: ItemWithSource[], maxItems: number, language
   ].join("\n\n");
 }
 
-function coerceAiDraft(response: AiBriefResponse, items: ItemWithSource[], language: BriefLanguage, categoryScope: string, date = new Date()): BriefDraft {
+function coerceAiDraft(response: AiBriefResponse, items: ItemWithSource[], language: BriefLanguage, categoryScope: string, date = new Date(), endDate?: Date): BriefDraft {
   const byId = new Map(items.map((item) => [item.id, item]));
   const categoryNames = [...groupByCategory(items).keys()];
   const sections: BriefSectionDraft[] = categoryNames.map((name) => ({ name, items: [] }));
@@ -308,10 +329,10 @@ function coerceAiDraft(response: AiBriefResponse, items: ItemWithSource[], langu
   }
 
   const categoryLabel = categoryScope === "all" ? "全部类别" : categoryName(items[0]);
-  return { title: briefTitle(date, language, categoryLabel), sections };
+  return { title: briefTitle(date, language, categoryLabel, endDate), sections };
 }
 
-async function aiDraft(items: ItemWithSource[], maxItems: number, apiKey: string, baseURL: string, model: string, languageStyle: string, language: BriefLanguage, categoryScope: string, date: Date) {
+async function aiDraft(items: ItemWithSource[], maxItems: number, apiKey: string, baseURL: string, model: string, languageStyle: string, language: BriefLanguage, categoryScope: string, date: Date, endDate?: Date) {
   const openai = new OpenAI({ apiKey, baseURL });
   const completion = await openai.chat.completions.create({
     model,
@@ -323,7 +344,7 @@ async function aiDraft(items: ItemWithSource[], maxItems: number, apiKey: string
     ],
   });
   const content = completion.choices[0]?.message.content ?? "{}";
-  return coerceAiDraft(JSON.parse(content) as AiBriefResponse, items, language, categoryScope, date);
+  return coerceAiDraft(JSON.parse(content) as AiBriefResponse, items, language, categoryScope, date, endDate);
 }
 
 export function resolveBriefLanguage(options: Pick<GenerateTodayBriefOptions, "briefLanguage"> | undefined, config: Pick<AppConfig, "briefLanguage">): BriefLanguage {
@@ -380,12 +401,12 @@ export async function generateTodayBrief(options: GenerateTodayBriefOptions) {
   const items = await getCandidateItems(maxItems, categoryScope, publishDateRange.from, publishDateRange.toExclusive);
   if (items.length === 0) throw new Error("该时间段暂无可生成的资讯，请先采集");
 
-  let draft = fallbackDraft(items, maxItems, briefLanguage, categoryScope, publishDate);
+  let draft = fallbackDraft(items, maxItems, briefLanguage, categoryScope, publishDate, publishDateRange.to);
   let mode: "openai" | "fallback" = "fallback";
 
   if (config.openaiApiKey) {
     try {
-      draft = await aiDraft(items, maxItems, config.openaiApiKey, config.openaiBaseUrl, config.openaiModel, config.languageStyle, briefLanguage, categoryScope, publishDate);
+      draft = await aiDraft(items, maxItems, config.openaiApiKey, config.openaiBaseUrl, config.openaiModel, config.languageStyle, briefLanguage, categoryScope, publishDate, publishDateRange.to);
       mode = "openai";
     } catch (error) {
       console.error("OpenAI brief generation failed, using fallback draft:", error);
