@@ -50,4 +50,14 @@ describe("source management UI boundaries", () => {
     expect(css).toContain("vertical-align: middle");
     expect(css).toContain("color: var(--primary-strong)");
   });
+
+  it("opens source URLs in a new tab without showing the internal fetch type column", () => {
+    const source = readLocal("./SourceManager.tsx");
+
+    expect(source).not.toContain("<th>采集方式</th>");
+    expect(source).not.toContain("<td>{source.type}</td>");
+    expect(source).toContain("className=\"source-url-link\"");
+    expect(source).toContain("target=\"_blank\"");
+    expect(source).toContain("rel=\"noreferrer noopener\"");
+  });
 });

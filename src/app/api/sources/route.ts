@@ -23,14 +23,14 @@ export async function POST(request: Request) {
     enabled?: boolean;
   };
 
-  if (!isSourceType(body.type)) {
+  if (body.type !== undefined && !isSourceType(body.type)) {
     return NextResponse.json({ error: "来源类型不支持" }, { status: 400 });
   }
 
   try {
     const source = await createSource({
       name: body.name ?? "",
-      type: body.type,
+      ...(body.type !== undefined ? { type: body.type } : {}),
       url: body.url ?? "",
       categoryId: body.categoryId ?? "",
       fetchFrequencyMinutes: body.fetchFrequencyMinutes,

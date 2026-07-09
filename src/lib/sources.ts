@@ -6,7 +6,7 @@ const SOURCE_TYPES: SourceType[] = ["RSS", "HTML", "HN", "GITHUB_TRENDING"];
 
 export type CreateSourceInput = {
   name: string;
-  type: SourceType;
+  type?: SourceType;
   url: string;
   categoryId: string;
   fetchFrequencyMinutes?: number;
@@ -17,6 +17,25 @@ export type UpdateSourceInput = Partial<CreateSourceInput>;
 
 export function isSourceType(value: unknown): value is SourceType {
   return typeof value === "string" && SOURCE_TYPES.includes(value as SourceType);
+}
+
+export function inferSourceTypeFromUrl(input: string): SourceType {
+  const normalized = input.trim().toLowerCase();
+
+  try {
+    const url = new URL(normalized);
+    const hostname = url.hostname.replace(/^www\./, "");
+    const pathname = url.pathname;
+    const fullPath = `${pathname}${url.search}`;
+
+    if (hostname === "hn.algolia.com" || fullPath.includes("search_by_date")) return "HN";
+    if (hostname === "github.com" && pathname.startsWith("/trending")) return "GITHUB_TRENDING";
+    if (/\.(rss|xml|atom)$/.test(pathname) || /(^|[/?&=_-])(rss|feed|atom)([/?&=_.-]|$)/.test(fullPath)) return "RSS";
+  } catch {
+    if (/\.(rss|xml|atom)(\?|#|$)/.test(normalized) || /\b(rss|feed|atom)\b/.test(normalized)) return "RSS";
+  }
+
+  return "HTML";
 }
 
 async function assertCategory(categoryId: string) {
@@ -45,14 +64,15 @@ export async function createSource(input: CreateSourceInput) {
   if (!name) throw new Error("来源名称不能为空");
   if (!url) throw new Error("来源 URL 不能为空");
   if (!categoryId) throw new Error("请选择类别");
-  if (!isSourceType(input.type)) throw new Error("来源类型不支持");
+  if (input.type !== undefined && !isSourceType(input.type)) throw new Error("来源类型不支持");
 
   await assertCategory(categoryId);
+  const type = input.type ?? inferSourceTypeFromUrl(url);
 
   return prisma.source.create({
     data: {
       name,
-      type: input.type,
+      type,
       url,
       categoryId,
       enabled: input.enabled ?? true,
@@ -86,6 +106,9 @@ export async function updateSource(id: string, input: UpdateSourceInput) {
     const url = input.url.trim();
     if (!url) throw new Error("来源 URL 不能为空");
     data.url = url;
+    if (input.type === undefined) {
+      data.type = inferSourceTypeFromUrl(url);
+    }
   }
 
   if (input.type !== undefined) {

@@ -36,7 +36,6 @@ describe("ingest sources API", () => {
   it("creates a manual source", async () => {
     const input = {
       name: "Finance Feed",
-      type: "RSS",
       url: "https://example.com/feed.xml",
       categoryId: "cat-finance",
       fetchFrequencyMinutes: 360,
@@ -53,7 +52,7 @@ describe("ingest sources API", () => {
     const response = await POST(
       new Request("http://localhost/api/jobs/ingest/sources", {
         method: "POST",
-        body: JSON.stringify({ name: "Finance Feed", type: "RSS", url: "https://example.com/feed.xml" }),
+        body: JSON.stringify({ name: "Finance Feed", url: "https://example.com/feed.xml" }),
       }),
     );
 

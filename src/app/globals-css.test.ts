@@ -45,3 +45,22 @@ describe("items page layout", () => {
     expect(getRuleBody(".items-limit-form")).toContain("justify-content: flex-start;");
   });
 });
+
+describe("source management URL layout", () => {
+  it("clamps long source URLs to two fixed-height lines inside the table", () => {
+    const rule = getRuleBody(".source-url-link");
+
+    expect(rule).toContain("display: -webkit-box;");
+    expect(rule).toContain("max-width: clamp(180px, 24vw, 340px);");
+    expect(rule).toContain("height: calc(1.35em * 2);");
+    expect(rule).toContain("line-height: 1.35;");
+    expect(rule).toContain("margin: 0 auto;");
+    expect(rule).toContain("text-align: center;");
+    expect(rule).toContain("overflow: hidden;");
+    expect(rule).toContain("text-overflow: ellipsis;");
+    expect(rule).toContain("-webkit-line-clamp: 2;");
+    expect(rule).toContain("-webkit-box-orient: vertical;");
+    expect(rule).toContain("overflow-wrap: anywhere;");
+    expect(rule).toContain("white-space: normal;");
+  });
+});

@@ -25,7 +25,6 @@ export type SourceSortState = { key: SourceSortKey; direction: "asc" | "desc" };
 type SourceDraft = {
   id?: string;
   name: string;
-  type: SourceType;
   url: string;
   categoryId: string;
   enabled: boolean;
@@ -37,11 +36,8 @@ type SourceManagerProps = {
   initialCategories: CategoryOption[];
 };
 
-const SOURCE_TYPES: SourceType[] = ["RSS", "HTML", "HN", "GITHUB_TRENDING"];
-
 const emptyDraft: SourceDraft = {
   name: "",
-  type: "RSS",
   url: "",
   categoryId: "",
   enabled: true,
@@ -52,7 +48,6 @@ function sourceToDraft(source: ManagedSource): SourceDraft {
   return {
     id: source.id,
     name: source.name,
-    type: source.type,
     url: source.url,
     categoryId: source.categoryId ?? "",
     enabled: source.enabled,
@@ -162,7 +157,6 @@ export function SourceManager({ initialSources, initialCategories }: SourceManag
       try {
         const payload = {
           name: draft.name,
-          type: draft.type,
           url: draft.url,
           categoryId: draft.categoryId,
           enabled: draft.enabled,
@@ -287,7 +281,6 @@ export function SourceManager({ initialSources, initialCategories }: SourceManag
                         {sortIcon("category")}
                       </button>
                     </th>
-                    <th>类型</th>
                     <th>URL</th>
                     <th>抓取间隔</th>
                     <th>状态</th>
@@ -308,8 +301,11 @@ export function SourceManager({ initialSources, initialCategories }: SourceManag
                         <strong>{source.name}</strong>
                       </td>
                       <td>{source.category?.name ?? "-"}</td>
-                      <td>{source.type}</td>
-                      <td className="meta">{source.url}</td>
+                      <td className="meta">
+                        <a className="source-url-link" href={source.url} target="_blank" rel="noreferrer noopener" title={source.url}>
+                          {source.url}
+                        </a>
+                      </td>
                       <td>{source.fetchFrequencyMinutes} 分钟</td>
                       <td>
                         <span className={`status-pill ${source.enabled ? "success" : "empty"}`}>{source.enabled ? "启用" : "停用"}</span>
@@ -361,19 +357,9 @@ export function SourceManager({ initialSources, initialCategories }: SourceManag
                   <label htmlFor="sourceName">来源名称</label>
                   <input id="sourceName" value={draft.name} onChange={(event) => updateDraft("name", event.target.value)} placeholder="例如 OpenAI Blog" />
                 </div>
-                <div className="field">
-                  <label htmlFor="sourceType">来源类型</label>
-                  <select id="sourceType" value={draft.type} onChange={(event) => updateDraft("type", event.target.value as SourceType)}>
-                    {SOURCE_TYPES.map((type) => (
-                      <option value={type} key={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                </div>
                 <div className="field full">
                   <label htmlFor="sourceUrl">来源 URL</label>
-                  <input id="sourceUrl" value={draft.url} onChange={(event) => updateDraft("url", event.target.value)} placeholder="https://example.com/feed.xml" />
+                  <input id="sourceUrl" value={draft.url} onChange={(event) => updateDraft("url", event.target.value)} placeholder="https://www.investing.com/rss/news.rss" />
                 </div>
                 <div className="field">
                   <label htmlFor="sourceCategory">来源类别</label>

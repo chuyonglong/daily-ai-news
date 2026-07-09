@@ -76,6 +76,37 @@ describe("source management", () => {
     });
   });
 
+  it("infers source type from URL when creating a source without an explicit type", async () => {
+    const { createSource } = await importSources();
+
+    await createSource({
+      name: "Investing News",
+      url: " https://www.investing.com/rss/news.rss ",
+      categoryId: "cat-ai",
+    });
+
+    expect(mocks.prisma.source.create).toHaveBeenCalledWith({
+      data: {
+        name: "Investing News",
+        type: "RSS",
+        url: "https://www.investing.com/rss/news.rss",
+        categoryId: "cat-ai",
+        enabled: true,
+        fetchFrequencyMinutes: 1440,
+      },
+      include: { category: true },
+    });
+  });
+
+  it("infers special source types from known URL patterns", async () => {
+    const { inferSourceTypeFromUrl } = await importSources();
+
+    expect(inferSourceTypeFromUrl("https://www.tradingview.com/news/")).toBe("HTML");
+    expect(inferSourceTypeFromUrl("https://github.com/trending?since=daily")).toBe("GITHUB_TRENDING");
+    expect(inferSourceTypeFromUrl("https://hn.algolia.com/api/v1/search_by_date?query=AI&tags=story")).toBe("HN");
+    expect(inferSourceTypeFromUrl("https://example.com/feed.xml")).toBe("RSS");
+  });
+
   it("updates source details and validates category", async () => {
     const { updateSource } = await importSources();
 
@@ -98,6 +129,23 @@ describe("source management", () => {
         categoryId: "cat-ai",
         enabled: true,
         fetchFrequencyMinutes: 360,
+      },
+      include: { category: true },
+    });
+  });
+
+  it("reinfers source type when updating the URL without an explicit type", async () => {
+    const { updateSource } = await importSources();
+
+    await updateSource("source-1", {
+      url: " https://www.tradingview.com/news/ ",
+    });
+
+    expect(mocks.prisma.source.update).toHaveBeenCalledWith({
+      where: { id: "source-1" },
+      data: {
+        url: "https://www.tradingview.com/news/",
+        type: "HTML",
       },
       include: { category: true },
     });

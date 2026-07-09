@@ -43,7 +43,6 @@ describe("sources management API", () => {
   it("creates a source", async () => {
     const input = {
       name: "Finance Feed",
-      type: "RSS",
       url: "https://example.com/feed.xml",
       categoryId: "cat-finance",
       fetchFrequencyMinutes: 360,
