@@ -30,4 +30,24 @@ describe("source management UI boundaries", () => {
     expect(source).toContain("来源管理");
     expect(source).toContain("/sources");
   });
+
+  it("keeps source table sort controls icon-only beyond the column label", () => {
+    const source = readLocal("./SourceManager.tsx");
+
+    expect(source).not.toContain("sortLabel");
+    expect(source).not.toContain("升序");
+    expect(source).not.toContain("降序");
+  });
+
+  it("keeps the page title standard and emphasizes centered source table headers", () => {
+    const page = readLocal("../app/sources/page.tsx");
+    const css = readLocal("../app/globals.css");
+
+    expect(page).not.toContain("source-page-header");
+    expect(css).toContain(".source-table th");
+    expect(css).toContain(".source-table td");
+    expect(css).toContain("text-align: center");
+    expect(css).toContain("vertical-align: middle");
+    expect(css).toContain("color: var(--primary-strong)");
+  });
 });

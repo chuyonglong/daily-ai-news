@@ -333,6 +333,24 @@ button {
   white-space: nowrap;
 }
 
+.inline-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inline-filter span {
+  color: var(--label);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.inline-filter select {
+  width: auto;
+  min-width: 150px;
+}
+
 .button {
   display: inline-flex;
   align-items: center;
@@ -631,6 +649,44 @@ th {
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.table-sort-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: center;
+  text-transform: inherit;
+}
+
+.table-sort-button:hover,
+.table-sort-button:focus-visible {
+  color: var(--primary-strong);
+}
+
+.source-table th {
+  background: color-mix(in srgb, var(--primary-soft-bg) 72%, var(--surface));
+  color: var(--primary-strong);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.source-table th,
+.source-table td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.source-table .table-sort-button {
+  width: 100%;
+  color: var(--primary-strong);
+  font-weight: 800;
 }
 
 tr:last-child td {

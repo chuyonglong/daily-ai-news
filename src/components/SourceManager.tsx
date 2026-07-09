@@ -1,12 +1,12 @@
 "use client";
 
 import type { SourceType } from "@prisma/client";
-import { Pencil, Plus, Power, Save, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, Plus, Power, Save, Trash2, X } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
 type CategoryOption = { id: string; name: string };
 
-type ManagedSource = {
+export type ManagedSource = {
   id: string;
   name: string;
   type: SourceType;
@@ -16,7 +16,11 @@ type ManagedSource = {
   enabled: boolean;
   fetchFrequencyMinutes: number;
   lastFetchedAt: Date | string | null;
+  createdAt: Date | string;
 };
+
+export type SourceSortKey = "category" | "createdAt";
+export type SourceSortState = { key: SourceSortKey; direction: "asc" | "desc" };
 
 type SourceDraft = {
   id?: string;
@@ -61,6 +65,34 @@ function formatLastFetched(value: Date | string | null) {
   return new Date(value).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
+function formatDateTime(value: Date | string) {
+  return new Date(value).toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function categoryName(source: ManagedSource) {
+  return source.category?.name ?? "未分类";
+}
+
+export function nextSourceSortState(current: SourceSortState | null, key: SourceSortKey): SourceSortState {
+  if (current?.key === key) {
+    return { key, direction: current.direction === "asc" ? "desc" : "asc" };
+  }
+  return { key, direction: key === "createdAt" ? "desc" : "asc" };
+}
+
+export function filterAndSortSources(sources: ManagedSource[], categoryScope: string, sort: SourceSortState | null) {
+  const filtered = categoryScope === "all" ? sources : sources.filter((source) => source.categoryId === categoryScope);
+  if (!sort) return filtered;
+
+  return [...filtered].sort((left, right) => {
+    const direction = sort.direction === "asc" ? 1 : -1;
+    if (sort.key === "category") {
+      return categoryName(left).localeCompare(categoryName(right), "zh-CN") * direction || left.name.localeCompare(right.name, "zh-CN");
+    }
+    return (new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()) * direction || left.name.localeCompare(right.name, "zh-CN");
+  });
+}
+
 async function requestJson<T>(url: string, options: RequestInit = {}) {
   const response = await fetch(url, {
     ...options,
@@ -78,11 +110,23 @@ export function SourceManager({ initialSources, initialCategories }: SourceManag
   const [newCategoryName, setNewCategoryName] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<ManagedSource | null>(null);
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [categoryScope, setCategoryScope] = useState("all");
+  const [sort, setSort] = useState<SourceSortState | null>(null);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
 
   const enabledCount = useMemo(() => sources.filter((source) => source.enabled).length, [sources]);
+  const visibleSources = useMemo(() => filterAndSortSources(sources, categoryScope, sort), [sources, categoryScope, sort]);
   const editing = Boolean(draft?.id);
+
+  const changeSort = (key: SourceSortKey) => {
+    setSort((current) => nextSourceSortState(current, key));
+  };
+
+  const sortIcon = (key: SourceSortKey) => {
+    if (sort?.key !== key) return <ArrowUpDown size={14} aria-hidden="true" />;
+    return sort.direction === "asc" ? <ArrowUp size={14} aria-hidden="true" /> : <ArrowDown size={14} aria-hidden="true" />;
+  };
 
   const openCreate = () => {
     setMessage("");
@@ -204,10 +248,21 @@ export function SourceManager({ initialSources, initialCategories }: SourceManag
           <div>
             <h2 className="panel-title">来源列表</h2>
             <div className="meta">
-              共 {sources.length} 个来源，{enabledCount} 个启用
+              共 {sources.length} 个来源，{enabledCount} 个启用，当前显示 {visibleSources.length} 个
             </div>
           </div>
           <div className="toolbar">
+            <label className="inline-filter">
+              <span>类别查询</span>
+              <select value={categoryScope} onChange={(event) => setCategoryScope(event.target.value)}>
+                <option value="all">全部类别</option>
+                {categories.map((category) => (
+                  <option value={category.id} key={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             {message ? <span className="toast">{message}</span> : null}
             <button className="button primary" onClick={openCreate} disabled={isPending}>
               <Plus size={16} />
@@ -218,23 +273,36 @@ export function SourceManager({ initialSources, initialCategories }: SourceManag
         <div className="panel-body">
           {sources.length === 0 ? (
             <div className="empty">暂无来源。新增来源后即可在采集中心执行采集。</div>
+          ) : visibleSources.length === 0 ? (
+            <div className="empty">当前类别下暂无来源，请切换类别或新增来源。</div>
           ) : (
             <div className="table-wrap">
-              <table>
+              <table className="source-table">
                 <thead>
                   <tr>
                     <th>名称</th>
-                    <th>类别</th>
+                    <th>
+                      <button className="table-sort-button" onClick={() => changeSort("category")} type="button" title="按类别排序">
+                        类别
+                        {sortIcon("category")}
+                      </button>
+                    </th>
                     <th>类型</th>
                     <th>URL</th>
                     <th>抓取间隔</th>
                     <th>状态</th>
+                    <th>
+                      <button className="table-sort-button" onClick={() => changeSort("createdAt")} type="button" title="按添加时间排序">
+                        添加时间
+                        {sortIcon("createdAt")}
+                      </button>
+                    </th>
                     <th>上次采集</th>
                     <th>操作</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sources.map((source) => (
+                  {visibleSources.map((source) => (
                     <tr key={source.id}>
                       <td>
                         <strong>{source.name}</strong>
@@ -246,6 +314,7 @@ export function SourceManager({ initialSources, initialCategories }: SourceManag
                       <td>
                         <span className={`status-pill ${source.enabled ? "success" : "empty"}`}>{source.enabled ? "启用" : "停用"}</span>
                       </td>
+                      <td className="meta">{formatDateTime(source.createdAt)}</td>
                       <td className="meta">{formatLastFetched(source.lastFetchedAt)}</td>
                       <td>
                         <div className="toolbar">
